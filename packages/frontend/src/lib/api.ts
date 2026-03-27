@@ -6,6 +6,7 @@ export interface DeviceState {
   platform: string;
   app_id: string;
   app_name: string;
+  status_text?: string;
   display_title?: string;
   last_seen_at: string;
   is_online: number;
@@ -27,6 +28,7 @@ export interface ActivityRecord {
   platform: string;
   app_id: string;
   app_name: string;
+  status_text?: string;
   display_title?: string;
   started_at: string;
 }
@@ -34,6 +36,7 @@ export interface ActivityRecord {
 export interface TimelineSegment {
   app_name: string;
   app_id: string;
+  status_text: string;
   display_title?: string;
   started_at: string;
   ended_at: string | null;

@@ -1,6 +1,7 @@
 import { getAllDeviceStates, getRecentActivities } from "../db";
 import type { DeviceState, ActivityRecord } from "../types";
 import { visitors } from "../services/visitors";
+import { resolveAppMeta } from "../services/app-mapper";
 
 // Prepare records for public API: strip window_title, parse extra JSON
 function preparePublicDevices(devices: DeviceState[]) {
@@ -11,14 +12,29 @@ function preparePublicDevices(devices: DeviceState[]) {
     } catch {
       // Malformed JSON — ignore
     }
-    return { ...rest, extra: parsedExtra };
+    const { appName, statusText } = resolveAppMeta(rest.app_id, rest.platform);
+    return {
+      ...rest,
+      app_name: appName,
+      status_text: statusText,
+      extra: parsedExtra,
+    };
   });
 }
 
 function stripWindowTitle<T extends { window_title?: string }>(
   records: T[]
 ): Omit<T, "window_title">[] {
-  return records.map(({ window_title, ...rest }) => rest);
+  return records.map(({ window_title, ...rest }) => {
+    const appId = "app_id" in rest && typeof rest.app_id === "string" ? rest.app_id : "";
+    const platform = "platform" in rest && typeof rest.platform === "string" ? rest.platform : "";
+    const { appName, statusText } = resolveAppMeta(appId, platform);
+    return {
+      ...rest,
+      app_name: appName,
+      status_text: statusText,
+    };
+  });
 }
 
 export function handleCurrent(clientIp: string, userAgent?: string): Response {

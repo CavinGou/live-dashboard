@@ -1,11 +1,4 @@
-/**
- * Dramatized app description mapping.
- * Shows app name + playful activity description for privacy-friendly display.
- * Maps app_name (from backend app-names.json) to fun descriptions.
- */
-
 const descriptions: Record<string, string> = {
-  // Messaging
   Telegram: "正在TG上冲浪喵~",
   QQ: "正在QQ上水群喵~",
   TIM: "正在TIM上水群喵~",
@@ -19,8 +12,6 @@ const descriptions: Record<string, string> = {
   飞书: "正在飞书办公喵~",
   Lark: "正在飞书办公喵~",
   Slack: "正在Slack摸鱼喵~",
-
-  // AI assistants
   ChatGPT: "正在和ChatGPT对话喵~",
   Claude: "正在和Claude对话喵~",
   Gemini: "正在和Gemini对话喵~",
@@ -33,14 +24,13 @@ const descriptions: Record<string, string> = {
   DeepSeek: "正在和DeepSeek对话喵~",
   Poe: "正在Poe上和AI对话喵~",
   Perplexity: "正在用Perplexity搜索喵~",
-  "HuggingChat": "正在和HuggingChat对话喵~",
+  HuggingChat: "正在和HuggingChat对话喵~",
   Ollama: "正在本地跑AI模型喵~",
   "LM Studio": "正在本地跑AI模型喵~",
-
-  // Browsers
   "Microsoft Edge": "正在用Edge网上冲浪喵~",
   "Google Chrome": "正在用Chrome网上冲浪喵~",
   Chrome: "正在用Chrome网上冲浪喵~",
+  QQ浏览器: "正在用QQ浏览器网上冲浪喵~",
   Firefox: "正在用Firefox网上冲浪喵~",
   Safari: "正在用Safari网上冲浪喵~",
   Opera: "正在用Opera网上冲浪喵~",
@@ -48,8 +38,6 @@ const descriptions: Record<string, string> = {
   Brave: "正在用Brave网上冲浪喵~",
   Vivaldi: "正在用Vivaldi网上冲浪喵~",
   "Opera GX": "正在用Opera GX网上冲浪喵~",
-
-  // Code editors
   "VS Code": "正在用VS Code疯狂写bug喵~",
   "Visual Studio Code": "正在用VS Code疯狂写bug喵~",
   "Visual Studio": "正在用VS写代码喵~",
@@ -73,8 +61,6 @@ const descriptions: Record<string, string> = {
   Neovim: "正在用Neovim写代码喵~",
   Emacs: "正在用Emacs写代码喵~",
   "Notepad++": "正在用Notepad++写代码喵~",
-
-  // Dev tools
   "Docker Desktop": "正在用Docker搞容器喵~",
   "GitHub Desktop": "正在用GitHub Desktop管理代码喵~",
   Postman: "正在用Postman调接口喵~",
@@ -85,9 +71,7 @@ const descriptions: Record<string, string> = {
   Fiddler: "正在用Fiddler抓包喵~",
   "Charles Proxy": "正在用Charles抓包喵~",
   GitKraken: "正在用GitKraken管理代码喵~",
-  "Sourcetree": "正在用Sourcetree管理代码喵~",
-
-  // Design tools
+  Sourcetree: "正在用Sourcetree管理代码喵~",
   Figma: "正在用Figma做设计喵~",
   Sketch: "正在用Sketch做设计喵~",
   Photoshop: "正在用Photoshop修图喵~",
@@ -118,15 +102,11 @@ const descriptions: Record<string, string> = {
   "Clip Studio Paint": "正在用CSP画画喵~",
   MediBang: "正在用MediBang画画喵~",
   Krita: "正在用Krita画画喵~",
-
-  // File managers
   文件资源管理器: "正在翻文件夹找东西喵~",
   "File Explorer": "正在翻文件夹找东西喵~",
   文件管理: "正在翻文件夹找东西喵~",
   Finder: "正在翻文件夹找东西喵~",
   "Total Commander": "正在翻文件夹找东西喵~",
-
-  // Terminals
   "Windows Terminal": "正在用命令行敲命令喵~",
   终端: "正在用命令行敲命令喵~",
   Terminal: "正在用命令行敲命令喵~",
@@ -138,8 +118,6 @@ const descriptions: Record<string, string> = {
   Alacritty: "正在用命令行敲命令喵~",
   Warp: "正在用Warp敲命令喵~",
   Kitty: "正在用命令行敲命令喵~",
-
-  // Video
   哔哩哔哩: "正在B站划水摸鱼喵~",
   bilibili: "正在B站划水摸鱼喵~",
   YouTube: "正在YouTube看视频喵~",
@@ -157,11 +135,9 @@ const descriptions: Record<string, string> = {
   虎牙: "正在虎牙看直播喵~",
   "Prime Video": "正在Prime Video追剧喵~",
   HBO: "正在HBO追剧喵~",
-
-  // Music
   Spotify: "正在Spotify听歌喵~",
   网易云音乐: "正在网易云听歌喵~",
-  "QQ音乐": "正在QQ音乐听歌喵~",
+  QQ音乐: "正在QQ音乐听歌喵~",
   酷狗音乐: "正在酷狗听歌喵~",
   "Apple Music": "正在Apple Music听歌喵~",
   foobar2000: "正在用foobar2000听歌喵~",
@@ -170,8 +146,6 @@ const descriptions: Record<string, string> = {
   "Amazon Music": "正在Amazon Music听歌喵~",
   AIMP: "正在用AIMP听歌喵~",
   Audacity: "正在用Audacity编辑音频喵~",
-
-  // Gaming
   Steam: "正在Steam玩游戏喵~",
   "Epic Games": "正在Epic玩游戏喵~",
   "Genshin Impact": "正在提瓦特冒险喵~",
@@ -181,51 +155,50 @@ const descriptions: Record<string, string> = {
   "Honkai: Star Rail": "正在星穹铁道开拓喵~",
   "崩坏：星穹铁道": "正在星穹铁道开拓喵~",
   Minecraft: "正在Minecraft挖矿喵~",
-  "王者荣耀": "正在王者峡谷激战喵~",
-  "和平精英": "正在吃鸡喵~",
+  王者荣耀: "正在王者峡谷激战喵~",
+  和平精英: "正在吃鸡喵~",
+  崩坏3: "正在和女武神并肩作战喵~",
+  QQ飞车手游: "正在QQ飞车漂移喵~",
+  荒野行动: "正在荒野行动吃鸡喵~",
   VALORANT: "正在VALORANT对枪喵~",
   "Counter-Strike 2": "正在CS2对枪喵~",
   CSGO: "正在CSGO对枪喵~",
   Overwatch: "正在守望先锋战斗喵~",
   "Apex Legends": "正在Apex大逃杀喵~",
   "Elden Ring": "正在交界地冒险喵~",
-  "Zelda": "正在海拉鲁冒险喵~",
+  Zelda: "正在海拉鲁冒险喵~",
   Roblox: "正在Roblox玩喵~",
   "GOG Galaxy": "正在GOG玩游戏喵~",
-  "Xbox": "正在Xbox玩游戏喵~",
+  Xbox: "正在Xbox玩游戏喵~",
   "EA App": "正在EA玩游戏喵~",
   "Ubisoft Connect": "正在育碧玩游戏喵~",
   "Battle.net": "正在暴雪玩游戏喵~",
-  "明日方舟": "正在罗德岛指挥作战喵~",
-  "Arknights": "正在罗德岛指挥作战喵~",
-  "绝区零": "正在绝区零战斗喵~",
-  "鸣潮": "正在鸣潮冒险喵~",
-
-  // Galgame / Visual Novels
+  明日方舟: "正在罗德岛指挥作战喵~",
+  Arknights: "正在罗德岛指挥作战喵~",
+  绝区零: "正在绝区零战斗喵~",
+  鸣潮: "正在鸣潮冒险喵~",
   "いろとりどりのセカイ": "正在攻略gal喵~",
-  "五彩斑斓的世界": "正在攻略gal喵~",
+  五彩斑斓的世界: "正在攻略gal喵~",
   FAVORITE: "正在攻略gal喵~",
-  "ものべの": "正在攻略gal喵~",
+  ものべの: "正在攻略gal喵~",
   CLANNAD: "正在攻略gal喵~",
   "Fate/stay night": "正在攻略gal喵~",
   "Summer Pockets": "正在攻略gal喵~",
-  "サマーポケッツ": "正在攻略gal喵~",
+  サマーポケッツ: "正在攻略gal喵~",
   "Doki Doki Literature Club": "正在攻略gal喵~",
   "WHITE ALBUM 2": "正在攻略gal喵~",
   "千恋＊万花": "正在攻略gal喵~",
   "Making*Lovers": "正在攻略gal喵~",
   "Sabbat of the Witch": "正在攻略gal喵~",
-  "サノバウィッチ": "正在攻略gal喵~",
+  サノバウィッチ: "正在攻略gal喵~",
   "Riddle Joker": "正在攻略gal喵~",
-  "喫茶ステラと死神の蝶": "正在攻略gal喵~",
+  喫茶ステラと死神の蝶: "正在攻略gal喵~",
   Kirikiri: "正在攻略gal喵~",
   KiriKiri: "正在攻略gal喵~",
   BGI: "正在攻略gal喵~",
   SiglusEngine: "正在攻略gal喵~",
   Ethornell: "正在攻略gal喵~",
   CatSystem2: "正在攻略gal喵~",
-
-  // Productivity
   Word: "正在用Word写文档喵~",
   "Microsoft Word": "正在用Word写文档喵~",
   Excel: "正在用Excel算数据喵~",
@@ -244,18 +217,17 @@ const descriptions: Record<string, string> = {
   "Google Slides": "正在用Google幻灯片做PPT喵~",
   Trello: "正在用Trello管理任务喵~",
   Todoist: "正在用Todoist管理待办喵~",
-  "Logseq": "正在用Logseq记笔记喵~",
+  Logseq: "正在用Logseq记笔记喵~",
   印象笔记: "正在用印象笔记记东西喵~",
   Evernote: "正在用印象笔记记东西喵~",
-
-  // Reading / E-book
   Kindle: "正在Kindle看书喵~",
   微信读书: "正在微信读书看书喵~",
-  "多看阅读": "正在多看阅读看书喵~",
+  多看阅读: "正在多看阅读看书喵~",
+  墨墨背单词: "正在用墨墨背单词啃单词喵~",
+  Keep: "正在用Keep运动喵~",
+  全民K歌: "正在全民K歌开嗓喵~",
   "Apple Books": "正在看书喵~",
   Calibre: "正在用Calibre看书喵~",
-
-  // Social / Reading
   Twitter: "正在刷推特喵~",
   X: "正在刷推特喵~",
   微博: "正在微博吃瓜喵~",
@@ -263,6 +235,10 @@ const descriptions: Record<string, string> = {
   抖音: "正在刷短视频喵~",
   TikTok: "正在刷短视频喵~",
   知乎: "正在知乎涨知识喵~",
+  百度贴吧: "正在百度贴吧逛吧喵~",
+  腾讯新闻: "正在看腾讯新闻喵~",
+  美团外卖: "正在点外卖喵~",
+  Monika: "正在陪伴 Monika 喵~",
   今日头条: "正在刷今日头条喵~",
   Reddit: "正在Reddit冲浪喵~",
   GitHub: "正在GitHub摸鱼喵~",
@@ -274,8 +250,6 @@ const descriptions: Record<string, string> = {
   Threads: "正在刷Threads喵~",
   快手: "正在刷快手喵~",
   B站漫画: "正在B站看漫画喵~",
-
-  // Proxy tools
   "Mihomo Party": "正在调代理设置喵~",
   Clash: "正在调代理设置喵~",
   "Clash Verge": "正在调代理设置喵~",
@@ -284,8 +258,6 @@ const descriptions: Record<string, string> = {
   Quantumult: "正在调代理设置喵~",
   Surge: "正在调代理设置喵~",
   NekoBox: "正在调代理设置喵~",
-
-  // Download / Transfer
   qBittorrent: "正在下载东西喵~",
   "µTorrent": "正在下载东西喵~",
   BitComet: "正在下载东西喵~",
@@ -294,17 +266,13 @@ const descriptions: Record<string, string> = {
   "Internet Download Manager": "正在用IDM下载喵~",
   Motrix: "正在下载东西喵~",
   "Free Download Manager": "正在下载东西喵~",
-
-  // Cloud storage
   "Google Drive": "正在用Google云端硬盘喵~",
   OneDrive: "正在用OneDrive同步文件喵~",
   百度网盘: "正在用百度网盘喵~",
   阿里云盘: "正在用阿里云盘喵~",
   Dropbox: "正在用Dropbox同步文件喵~",
-
-  // Remote desktop / Meeting
-  "TeamViewer": "正在远程控制喵~",
-  "ToDesk": "正在远程控制喵~",
+  TeamViewer: "正在远程控制喵~",
+  ToDesk: "正在远程控制喵~",
   向日葵: "正在远程控制喵~",
   腾讯会议: "正在开会喵~",
   Zoom: "正在开会喵~",
@@ -312,8 +280,6 @@ const descriptions: Record<string, string> = {
   "Google Meet": "正在开会喵~",
   钉钉会议: "正在开会喵~",
   飞书会议: "正在开会喵~",
-
-  // System
   任务管理器: "正在看任务管理器喵~",
   "Task Manager": "正在看任务管理器喵~",
   系统设置: "正在调系统设置喵~",
@@ -326,13 +292,9 @@ const descriptions: Record<string, string> = {
   "UWP 应用": "正在用UWP应用喵~",
   "系统 Shell": "在系统界面喵~",
   系统界面: "在系统界面喵~",
-  "控制面板": "正在调系统设置喵~",
+  控制面板: "正在调系统设置喵~",
   "Control Panel": "正在调系统设置喵~",
-
-  // Android specific
   android: "当前手机在线喵~",
-
-  // Shopping / Services
   支付宝: "正在用支付宝喵~",
   淘宝: "正在逛淘宝剁手喵~",
   京东: "正在逛京东剁手喵~",
@@ -345,8 +307,6 @@ const descriptions: Record<string, string> = {
   闲鱼: "正在逛闲鱼淘二手喵~",
   "Google Play": "正在逛应用商店喵~",
   "App Store": "正在逛应用商店喵~",
-
-  // Travel
   铁路12306: "正在12306买火车票喵~",
   携程: "正在携程订行程喵~",
   百度地图: "正在看地图喵~",
@@ -356,430 +316,21 @@ const descriptions: Record<string, string> = {
   飞猪: "正在飞猪订行程喵~",
 };
 
-const DEFAULT_DESCRIPTION = "正在忙别的喵~";
+export const DEFAULT_STATUS_TEXT = "正在忙别的喵~";
 
-// Pre-build lowercase index for O(1) lookups
 const lowerIndex = new Map<string, string>();
 for (const [key, value] of Object.entries(descriptions)) {
   lowerIndex.set(key.toLowerCase(), value);
 }
 
-// Music app names (lowercase) — used to avoid duplicate music info in descriptions
-const _musicAppNames = new Set([
-  "spotify", "网易云音乐", "qq音乐", "酷狗音乐", "apple music",
-  "foobar2000", "youtube music", "酷我音乐", "amazon music", "aimp",
-  "musicbee", "vlc", "potplayer", "windows media player",
-]);
+export function getStatusText(appName: string): string {
+  if (!appName) return DEFAULT_STATUS_TEXT;
+  const normalized = appName.trim();
+  if (!normalized) return DEFAULT_STATUS_TEXT;
 
-// ── Display title templates by app category ──
-// When displayTitle is available, use a richer template with the title embedded.
-
-type TitleTemplate = (displayTitle: string) => string;
-
-const titleTemplates = new Map<string, TitleTemplate>();
-
-function registerTemplate(names: string[], template: TitleTemplate) {
-  for (const n of names) {
-    titleTemplates.set(n.toLowerCase(), template);
-  }
-}
-
-// Video apps
-registerTemplate(
-  ["YouTube"],
-  (t) => `正在YouTube看「${t}」喵~`
-);
-registerTemplate(
-  ["哔哩哔哩", "bilibili"],
-  (t) => `正在B站看「${t}」喵~`
-);
-registerTemplate(
-  ["Netflix"],
-  (t) => `正在Netflix看「${t}」喵~`
-);
-registerTemplate(
-  ["爱奇艺"],
-  (t) => `正在爱奇艺看「${t}」喵~`
-);
-registerTemplate(
-  ["优酷"],
-  (t) => `正在优酷看「${t}」喵~`
-);
-registerTemplate(
-  ["腾讯视频"],
-  (t) => `正在腾讯视频看「${t}」喵~`
-);
-registerTemplate(
-  ["VLC", "PotPlayer", "mpv"],
-  (t) => `正在看「${t}」喵~`
-);
-// New video platforms
-registerTemplate(
-  ["Twitch"],
-  (t) => `正在Twitch看「${t}」喵~`
-);
-registerTemplate(
-  ["Disney+"],
-  (t) => `正在Disney+看「${t}」喵~`
-);
-registerTemplate(
-  ["芒果TV"],
-  (t) => `正在芒果TV看「${t}」喵~`
-);
-registerTemplate(
-  ["斗鱼"],
-  (t) => `正在斗鱼看「${t}」喵~`
-);
-registerTemplate(
-  ["虎牙"],
-  (t) => `正在虎牙看「${t}」喵~`
-);
-registerTemplate(
-  ["Prime Video"],
-  (t) => `正在Prime Video看「${t}」喵~`
-);
-registerTemplate(
-  ["HBO"],
-  (t) => `正在HBO看「${t}」喵~`
-);
-
-// Music apps
-registerTemplate(
-  ["Spotify"],
-  (t) => `正在Spotify听「${t}」喵~`
-);
-registerTemplate(
-  ["网易云音乐"],
-  (t) => `正在网易云听「${t}」喵~`
-);
-registerTemplate(
-  ["QQ音乐"],
-  (t) => `正在QQ音乐听「${t}」喵~`
-);
-registerTemplate(
-  ["酷狗音乐"],
-  (t) => `正在酷狗听「${t}」喵~`
-);
-registerTemplate(
-  ["Apple Music"],
-  (t) => `正在Apple Music听「${t}」喵~`
-);
-registerTemplate(
-  ["foobar2000"],
-  (t) => `正在听「${t}」喵~`
-);
-registerTemplate(
-  ["YouTube Music"],
-  (t) => `正在YouTube Music听「${t}」喵~`
-);
-registerTemplate(
-  ["酷我音乐"],
-  (t) => `正在酷我听「${t}」喵~`
-);
-registerTemplate(
-  ["Amazon Music"],
-  (t) => `正在Amazon Music听「${t}」喵~`
-);
-registerTemplate(
-  ["AIMP"],
-  (t) => `正在听「${t}」喵~`
-);
-
-// IDE / editors
-registerTemplate(
-  ["VS Code", "Visual Studio Code"],
-  (t) => `正在用VS Code写「${t}」喵~`
-);
-registerTemplate(
-  ["Cursor"],
-  (t) => `正在用Cursor写「${t}」喵~`
-);
-registerTemplate(
-  ["IntelliJ IDEA"],
-  (t) => `正在用IDEA写「${t}」喵~`
-);
-registerTemplate(
-  ["PyCharm", "WebStorm", "GoLand", "JetBrains Rider", "DataGrip", "Android Studio"],
-  (t) => `正在写「${t}」喵~`
-);
-registerTemplate(
-  ["Sublime Text"],
-  (t) => `正在用Sublime写「${t}」喵~`
-);
-registerTemplate(
-  ["Visual Studio"],
-  (t) => `正在用VS写「${t}」喵~`
-);
-registerTemplate(
-  ["Google Antigravity"],
-  (t) => `正在用Antigravity写「${t}」喵~`
-);
-registerTemplate(
-  ["Windsurf"],
-  (t) => `正在用Windsurf写「${t}」喵~`
-);
-registerTemplate(
-  ["Zed"],
-  (t) => `正在用Zed写「${t}」喵~`
-);
-registerTemplate(
-  ["CLion", "RustRover", "JetBrains Fleet", "HBuilderX"],
-  (t) => `正在写「${t}」喵~`
-);
-registerTemplate(
-  ["Vim", "Neovim"],
-  (t) => `正在用Vim写「${t}」喵~`
-);
-registerTemplate(
-  ["Emacs"],
-  (t) => `正在用Emacs写「${t}」喵~`
-);
-registerTemplate(
-  ["Notepad++"],
-  (t) => `正在用Notepad++写「${t}」喵~`
-);
-
-// Dev tools
-registerTemplate(
-  ["Docker Desktop"],
-  (t) => `正在用Docker搞「${t}」喵~`
-);
-registerTemplate(
-  ["GitHub Desktop"],
-  (t) => `正在GitHub上搞「${t}」喵~`
-);
-registerTemplate(
-  ["Postman"],
-  (t) => `正在用Postman调「${t}」喵~`
-);
-registerTemplate(
-  ["DBeaver", "Navicat"],
-  (t) => `正在查「${t}」数据库喵~`
-);
-registerTemplate(
-  ["Insomnia"],
-  (t) => `正在用Insomnia调「${t}」喵~`
-);
-registerTemplate(
-  ["GitKraken"],
-  (t) => `正在用GitKraken搞「${t}」喵~`
-);
-registerTemplate(
-  ["Sourcetree"],
-  (t) => `正在用Sourcetree搞「${t}」喵~`
-);
-
-// Gaming platforms — displayTitle IS the game title
-registerTemplate(
-  ["Steam"],
-  (t) => {
-    const tl = t.toLowerCase();
-    if (tl === "steam" || tl === "") return "正在浏览 Steam 喵~";
-    if (tl === "好友列表") return "正在与 Steam 好友聊天喵~";
-    // Hash-like strings (screenshot viewer etc) or friend names — hide details
-    if (/^[0-9a-f]{20,}/i.test(t)) return "正在浏览 Steam 喵~";
-    // Check if it looks like a game name (contains letters/CJK, not just a short nickname)
-    // Short titles without spaces/special chars are likely friend nicknames
-    // Game titles typically have spaces, English words, or are longer
-    if (t.length <= 20 && !/\s/.test(t) && !/[a-z]{3,}/i.test(t)) return "正在与 Steam 好友聊天喵~";
-    return `正在Steam玩「${t}」喵~`;
-  }
-);
-registerTemplate(
-  ["Epic Games"],
-  (t) => `正在Epic玩「${t}」喵~`
-);
-registerTemplate(
-  ["GOG Galaxy"],
-  (t) => `正在GOG玩「${t}」喵~`
-);
-registerTemplate(
-  ["Xbox"],
-  (t) => `正在Xbox玩「${t}」喵~`
-);
-registerTemplate(
-  ["EA App"],
-  (t) => `正在EA玩「${t}」喵~`
-);
-registerTemplate(
-  ["Ubisoft Connect"],
-  (t) => `正在育碧玩「${t}」喵~`
-);
-registerTemplate(
-  ["Battle.net"],
-  (t) => `正在暴雪玩「${t}」喵~`
-);
-// Galgame engines — show gal title
-registerTemplate(
-  [
-    "Kirikiri", "KiriKiri", "BGI", "SiglusEngine", "Ethornell", "CatSystem2",
-    "いろとりどりのセカイ", "五彩斑斓的世界", "FAVORITE", "ものべの",
-    "CLANNAD", "Fate/stay night", "Summer Pockets", "サマーポケッツ",
-    "Doki Doki Literature Club", "WHITE ALBUM 2", "千恋＊万花",
-    "Making*Lovers", "Sabbat of the Witch", "サノバウィッチ",
-    "Riddle Joker", "喫茶ステラと死神の蝶",
-  ],
-  (t) => `正在攻略「${t}」喵~`
-);
-
-// Productivity
-registerTemplate(
-  ["Word", "Microsoft Word"],
-  (t) => `正在用Word写「${t}」喵~`
-);
-registerTemplate(
-  ["Excel", "Microsoft Excel"],
-  (t) => `正在用Excel看「${t}」喵~`
-);
-registerTemplate(
-  ["PowerPoint", "Microsoft PowerPoint"],
-  (t) => `正在做「${t}」PPT喵~`
-);
-registerTemplate(
-  ["OneNote"],
-  (t) => `正在OneNote写「${t}」喵~`
-);
-registerTemplate(
-  ["Notion"],
-  (t) => `正在Notion看「${t}」喵~`
-);
-registerTemplate(
-  ["Obsidian"],
-  (t) => `正在Obsidian写「${t}」喵~`
-);
-registerTemplate(
-  ["Typora"],
-  (t) => `正在Typora写「${t}」喵~`
-);
-registerTemplate(
-  ["WPS Office", "WPS"],
-  (t) => `正在用WPS写「${t}」喵~`
-);
-registerTemplate(
-  ["Google Docs"],
-  (t) => `正在Google文档写「${t}」喵~`
-);
-registerTemplate(
-  ["Logseq"],
-  (t) => `正在Logseq写「${t}」喵~`
-);
-
-// Design tools
-registerTemplate(
-  ["Figma"],
-  (t) => `正在用Figma做「${t}」喵~`
-);
-registerTemplate(
-  ["Photoshop", "Adobe Photoshop"],
-  (t) => `正在用Photoshop修「${t}」喵~`
-);
-registerTemplate(
-  ["Illustrator", "Adobe Illustrator"],
-  (t) => `正在用Illustrator画「${t}」喵~`
-);
-registerTemplate(
-  ["Premiere Pro", "Adobe Premiere Pro"],
-  (t) => `正在用Premiere剪「${t}」喵~`
-);
-registerTemplate(
-  ["After Effects", "Adobe After Effects"],
-  (t) => `正在用AE做「${t}」喵~`
-);
-registerTemplate(
-  ["Blender"],
-  (t) => `正在用Blender搞「${t}」喵~`
-);
-registerTemplate(
-  ["DaVinci Resolve"],
-  (t) => `正在用达芬奇剪「${t}」喵~`
-);
-registerTemplate(
-  ["剪映", "CapCut"],
-  (t) => `正在用剪映剪「${t}」喵~`
-);
-registerTemplate(
-  ["Lightroom", "Adobe Lightroom"],
-  (t) => `正在用Lightroom修「${t}」喵~`
-);
-registerTemplate(
-  ["SAI", "Clip Studio Paint", "MediBang", "Krita"],
-  (t) => `正在画「${t}」喵~`
-);
-
-// Reading
-registerTemplate(
-  ["Kindle"],
-  (t) => `正在Kindle看「${t}」喵~`
-);
-registerTemplate(
-  ["微信读书"],
-  (t) => `正在微信读书看「${t}」喵~`
-);
-
-// Browser — when display_title is available (video site page, generic page title)
-registerTemplate(
-  ["Google Chrome", "Chrome"],
-  (t) => `正在用Chrome看「${t}」喵~`
-);
-registerTemplate(
-  ["Microsoft Edge"],
-  (t) => `正在用Edge看「${t}」喵~`
-);
-registerTemplate(
-  ["Firefox"],
-  (t) => `正在用Firefox看「${t}」喵~`
-);
-registerTemplate(
-  ["Safari", "Opera", "Arc"],
-  (t) => `正在看「${t}」喵~`
-);
-registerTemplate(
-  ["Brave"],
-  (t) => `正在用Brave看「${t}」喵~`
-);
-registerTemplate(
-  ["Vivaldi"],
-  (t) => `正在用Vivaldi看「${t}」喵~`
-);
-
-export function getAppDescription(appName: string, displayTitle?: string, music?: { title?: string; artist?: string; app?: string }): string {
-  if (!appName) return DEFAULT_DESCRIPTION;
-
-  const appLower = appName.toLowerCase();
-
-  if (appLower === "idle") return "暂时离开了喵~";
-  const isMusicAppForeground = _musicAppNames.has(appLower);
-
-  // Base description (with or without display title)
-  let base: string | undefined;
-
-  // If we have a display_title, try to use a rich template
-  // BUT skip template for music apps when music extra is present (♪ line handles song info)
-  if (displayTitle && !(isMusicAppForeground && music?.title)) {
-    const template = titleTemplates.get(appLower);
-    if (template) {
-      base = template(displayTitle);
-    }
+  if (normalized.toLowerCase() === "idle") {
+    return "暂时离开了喵~";
   }
 
-  if (!base) {
-    // Known app without template → use generic description
-    const desc = lowerIndex.get(appLower);
-    if (desc) {
-      base = desc;
-    }
-  }
-
-  if (!base) {
-    // Unknown app with a display title → show it
-    if (displayTitle) {
-      base = `正在玩「${displayTitle}」喵~`;
-    } else {
-      base = DEFAULT_DESCRIPTION;
-    }
-  }
-
-  // Music info is shown via the ♪ line in CurrentStatus, so no need to embed it in description
-
-  return base;
+  return lowerIndex.get(normalized.toLowerCase()) ?? DEFAULT_STATUS_TEXT;
 }

@@ -11,6 +11,11 @@ export interface ReportPayload {
   extra?: {
     battery_percent?: number;
     battery_charging?: boolean;
+    music?: {
+      title?: string;
+      artist?: string;
+      app?: string;
+    };
   };
 }
 
@@ -21,6 +26,7 @@ export interface ActivityRecord {
   platform: string;
   app_id: string;
   app_name: string;
+  status_text?: string;
   window_title: string;
   display_title: string;
   started_at: string;
@@ -33,6 +39,7 @@ export interface DeviceState {
   platform: string;
   app_id: string;
   app_name: string;
+  status_text?: string;
   window_title: string;
   display_title: string;
   last_seen_at: string;
@@ -43,6 +50,7 @@ export interface DeviceState {
 export interface TimelineSegment {
   app_name: string;
   app_id: string;
+  status_text: string;
   display_title: string;
   started_at: string;
   ended_at: string | null;

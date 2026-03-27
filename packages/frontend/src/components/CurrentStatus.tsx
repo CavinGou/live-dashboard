@@ -1,5 +1,4 @@
 import type { DeviceState } from "@/lib/api";
-import { getAppDescription } from "@/lib/app-descriptions";
 import { useConfig } from "@/hooks/useConfig";
 
 interface Props {
@@ -11,9 +10,7 @@ export default function CurrentStatus({ device }: Props) {
   const active = device?.is_online === 1 ? device : undefined;
 
   const isOnline = !!active;
-  const description = active
-    ? getAppDescription(active.app_name, active.display_title, active.extra?.music)
-    : null;
+  const description = active?.status_text ?? "正在忙别的喵~";
 
   // Battery info from the active device
   const battery = active?.extra;

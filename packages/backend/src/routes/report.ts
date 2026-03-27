@@ -1,5 +1,5 @@
 import { authenticateToken } from "../middleware/auth";
-import { resolveAppName } from "../services/app-mapper";
+import { resolveAppMeta } from "../services/app-mapper";
 import { isNSFW } from "../services/nsfw-filter";
 import { processDisplayTitle } from "../services/privacy-tiers";
 import { insertActivity, upsertDeviceState, hmacTitle } from "../db";
@@ -54,7 +54,7 @@ export async function handleReport(req: Request): Promise<Response> {
   }
 
   // Resolve app name
-  const appName = resolveAppName(appId, device.platform);
+  const { appName } = resolveAppMeta(appId, device.platform);
 
   // Privacy: generate display_title (safe for public), then discard raw window_title
   const displayTitle = processDisplayTitle(appName, windowTitle);

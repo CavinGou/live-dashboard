@@ -4,6 +4,7 @@ import {
 } from "../db";
 import type { ActivityRecord, TimelineSegment } from "../types";
 import { db } from "../db";
+import { resolveAppMeta } from "../services/app-mapper";
 
 export function handleTimeline(url: URL): Response {
   const date = url.searchParams.get("date");
@@ -54,6 +55,7 @@ export function handleTimeline(url: URL): Response {
   const segments: TimelineSegment[] = [];
   for (let i = 0; i < activities.length; i++) {
     const a = activities[i];
+    const { appName, statusText } = resolveAppMeta(a.app_id, a.platform);
     // Find next activity on same device to compute end time
     let endedAt: string | null = null;
     for (let j = i + 1; j < activities.length; j++) {
@@ -80,8 +82,9 @@ export function handleTimeline(url: URL): Response {
     const durationMinutes = Math.max(0, Math.round((endMs - startMs) / 60000));
 
     segments.push({
-      app_name: a.app_name,
+      app_name: appName,
       app_id: a.app_id,
+      status_text: statusText,
       display_title: a.display_title || "",
       started_at: a.started_at,
       ended_at: endedAt,

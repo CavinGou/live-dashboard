@@ -98,6 +98,25 @@ echo "Token: $TOKEN  ← Agent 配置用"
 - [自定义](https://github.com/Monika-Dream/live-dashboard/wiki/自定义) — 显示名、元数据、主题色
 - [本地开发](https://github.com/Monika-Dream/live-dashboard/wiki/本地开发) — 从源码构建
 
+## 自定义应用映射
+
+如果你想自己新增或覆盖某个应用的显示名、前端展示文案，优先修改后端覆盖表：
+
+- `packages/backend/src/data/app-overrides.ts`
+
+这个文件支持按平台和原始 `app_id` 覆盖：
+
+- `name`：显示名称
+- `statusText`：最终展示文案
+
+只改 `name` 而不改 `statusText` 时，会继续沿用该应用原本的默认文案。
+
+如果只是想加几个自己常用的软件，通常只改这一个文件就够了。
+
+只有当某个应用连基础显示名都没有被后端识别时，才需要补基础映射表：
+
+- `packages/backend/src/data/app-names.json`
+
 ## 许可证
 
 MIT
