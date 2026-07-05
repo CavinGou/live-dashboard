@@ -13,10 +13,11 @@ const AI_API_URL = process.env.AI_API_URL || "";
 const AI_API_KEY = process.env.AI_API_KEY || "";
 const AI_MODEL = process.env.AI_MODEL || "gpt-4o-mini";
 
-const SYSTEM_PROMPT = `你是一个简洁文艺的日记助手。根据用户今天在各设备上的应用使用记录，写一段100-150字的中文日总结。
+const SYSTEM_PROMPT = `你是一个简洁文艺的日记助手。根据用户今天目前为止在各设备上的使用记录，写一段100-150字的中文随笔。
 要求：
-- 语气温暖、自然，像朋友随笔
-- 提炼这一天的节奏和主题，不要逐条罗列
+- 语气温暖、自然，像朋友在记录今天的片段
+- 描述到目前为止的活动节奏，让人觉得"这一天还在继续"
+- 不要逐条罗列活动，而是提炼出整体节奏
 - 不要超过150字`;
 
 interface ActivityRow {
