@@ -120,15 +120,6 @@ export function handleHealthDataQuery(url: URL): Response {
         ORDER BY recorded_at ASC
       `).all(date) as HealthRecord[];
     }
-      `).all(date, deviceId) as HealthRecord[];
-    } else {
-      records = db.prepare(`
-        SELECT device_id, type, value, unit, recorded_at, end_time
-        FROM health_records
-        WHERE date(recorded_at) = ?
-        ORDER BY recorded_at ASC
-      `).all(date) as HealthRecord[];
-    }
 
     return Response.json({ date, records });
   } catch (e: any) {
