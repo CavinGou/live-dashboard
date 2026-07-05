@@ -14,11 +14,10 @@ services:
       - SITE_TITLE=${SITE_TITLE}
       - SITE_DESC=${SITE_DESC}
       - SITE_FAVICON=${SITE_FAVICON}
+    ports:
+      - "3000:3000"
     volumes:
       - dashboard_data:/data
-    networks:
-      dm_network:
-        ipv4_address: 172.20.0.80
     mem_limit: 128m
     cpus: 0.5
     logging:
@@ -30,7 +29,3 @@ services:
 volumes:
   dashboard_data:
 
-networks:
-  dm_network:
-    external: true
-    name: your_external_network  # Replace with your Docker network name

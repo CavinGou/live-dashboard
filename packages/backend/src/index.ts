@@ -13,6 +13,7 @@ import { injectSiteConfig } from "./services/site-config";
 
 // Start scheduled cleanup tasks (import triggers setInterval registration)
 import "./services/cleanup";
+import { generateDailySummary } from "./services/daily-summary-gen";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 if (isNaN(PORT) || PORT < 1 || PORT > 65535) {
@@ -154,3 +155,6 @@ const server = Bun.serve({
 });
 
 console.log(`[server] Live Dashboard backend running on http://localhost:${server.port}`);
+
+// Generate AI summary immediately on startup
+generateDailySummary().catch((e) => console.error("[startup] AI summary failed:", e));

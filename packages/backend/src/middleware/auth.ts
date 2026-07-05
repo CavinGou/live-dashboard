@@ -31,6 +31,11 @@ if (tokenMap.size === 0) {
 
 console.log(`[auth] Loaded ${tokenMap.size} device token(s)`);
 
+/** Returns the set of device IDs that are configured in env vars */
+export function getConfiguredDeviceIds(): Set<string> {
+  return new Set(Array.from(tokenMap.values()).map((d) => d.device_id));
+}
+
 export function authenticateToken(authHeader: string | null): DeviceInfo | null {
   if (!authHeader) return null;
 

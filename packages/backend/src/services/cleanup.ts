@@ -1,5 +1,6 @@
-import { cleanupOldActivities, cleanupOldSummaries, markOfflineDevices } from "../db";
+import { cleanupOldActivities, cleanupOldSummaries, markOfflineDevices, db } from "../db";
 import { generateDailySummary } from "./daily-summary-gen";
+import { getConfiguredDeviceIds } from "../middleware/auth";
 import cron from "node-cron";
 
 // Cleanup old activities + old summaries every hour
@@ -20,6 +21,22 @@ setInterval(() => {
     }
   } catch (e) {
     console.error("[cleanup] Summaries cleanup failed:", e);
+  }
+
+  try {
+    // Remove device states that are no longer configured in .env
+    const configuredIds = getConfiguredDeviceIds();
+    if (configuredIds.size > 0) {
+      const placeholders = Array.from(configuredIds).map(() => "?").join(",");
+      const result = db.prepare(
+        `DELETE FROM device_states WHERE device_id NOT IN (${placeholders})`
+      ).run(...Array.from(configuredIds));
+      if (result.changes > 0) {
+        console.log(`[cleanup] Removed ${result.changes} device(s) not in .env config`);
+      }
+    }
+  } catch (e) {
+    console.error("[cleanup] Device states cleanup failed:", e);
   }
 }, 60 * 60 * 1000);
 

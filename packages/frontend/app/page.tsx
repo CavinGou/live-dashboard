@@ -152,6 +152,11 @@ function HomeInner() {
           {/* Current status - prominent VN dialog */}
           <CurrentStatus device={selectedDevice} />
 
+          {/* AI Daily Summary — full width */}
+          <div className="mb-6">
+            <DailySummary selectedDate={selectedDate} />
+          </div>
+
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Left: device cards (narrow) */}
             <div className="lg:w-56 flex-shrink-0 space-y-2">
@@ -175,9 +180,6 @@ function HomeInner() {
                   />
                 ))
               )}
-
-              {/* AI Daily Summary */}
-              <DailySummary selectedDate={selectedDate} />
             </div>
 
             {/* Right: timeline + health (wide) */}
