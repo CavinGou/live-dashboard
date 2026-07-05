@@ -33,6 +33,14 @@ function todayStr() {
 }
 
 function buildUserPrompt(rows: ActivityRow[]): string {
+  // Find time range
+  const times = rows.map((r) => r.started_at).filter(Boolean).sort();
+  const timeRange = times.length >= 2
+    ? `${times[0].slice(11, 16)} ~ ${times[times.length - 1].slice(11, 16)}`
+    : times.length === 1
+      ? times[0].slice(11, 16)
+      : "";
+
   // Aggregate by device → app → total mentions + titles
   const byDevice = new Map<string, Map<string, { count: number; titles: Set<string> }>>();
   for (const r of rows) {
@@ -45,6 +53,7 @@ function buildUserPrompt(rows: ActivityRow[]): string {
   }
 
   const lines: string[] = [`日期: ${todayStr()}`];
+  if (timeRange) lines.push(`活动时段: ${timeRange}`);
   for (const [dev, apps] of byDevice) {
     lines.push(`\n[${dev}]`);
     const sorted = Array.from(apps.entries()).sort((a, b) => b[1].count - a[1].count);
