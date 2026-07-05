@@ -4,6 +4,7 @@ import {
 } from "../db";
 import type { ActivityRecord, TimelineSegment } from "../types";
 import { db } from "../db";
+import { localTimestamp } from "../services/local-time";
 
 export function handleTimeline(url: URL): Response {
   const date = url.searchParams.get("date");
@@ -74,7 +75,7 @@ export function handleTimeline(url: URL): Response {
     // (approximate last heartbeat window) instead of spanning the full gap.
     if (endedAt && endMs - startMs > GAP_THRESHOLD_MS) {
       endMs = startMs + 60_000;
-      endedAt = new Date(endMs).toISOString();
+      endedAt = localTimestamp(new Date(endMs));
     }
 
     const durationMinutes = Math.max(0, Math.round((endMs - startMs) / 60000));

@@ -1,6 +1,7 @@
 import { authenticateToken } from "../middleware/auth";
 import { db } from "../db";
 import type { HealthRecord } from "../types";
+import { localTimestamp } from "../services/local-time";
 
 const MAX_RECORDS_PER_REQUEST = 500;
 const VALID_TYPES = new Set([
@@ -65,7 +66,7 @@ export async function handleHealthData(req: Request): Promise<Response> {
     if (typeof record.end_time === "string" && record.end_time) {
       const et = new Date(record.end_time);
       if (!isNaN(et.getTime())) {
-        endTime = et.toISOString();
+        endTime = localTimestamp(et);
       }
     }
 
@@ -74,7 +75,7 @@ export async function handleHealthData(req: Request): Promise<Response> {
       type: record.type,
       value: record.value,
       unit: record.unit.slice(0, 20),
-      recordedAt: ts.toISOString(),
+      recordedAt: localTimestamp(ts),
       endTime,
     });
   }
@@ -134,30 +135,22 @@ export function handleHealthDataQuery(url: URL): Response {
       return Response.json({ date, records });
     }
 
-    // No timezone offset — use UTC (backwards compatible)
-    const startOfDay = `${date}T00:00:00.000Z`;
-    const d = new Date(startOfDay);
-    if (isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== date) {
-      return Response.json({ error: "Invalid date" }, { status: 400 });
-    }
-    d.setUTCDate(d.getUTCDate() + 1);
-    const startOfNextDay = d.toISOString();
-
+    // No timezone offset — query by local date
     let records: HealthRecord[];
     if (deviceId) {
       records = db.prepare(`
         SELECT device_id, type, value, unit, recorded_at, end_time
         FROM health_records
-        WHERE recorded_at >= ? AND recorded_at < ? AND device_id = ?
+        WHERE date(recorded_at) = ? AND device_id = ?
         ORDER BY recorded_at ASC
-      `).all(startOfDay, startOfNextDay, deviceId) as HealthRecord[];
+      `).all(date, deviceId) as HealthRecord[];
     } else {
       records = db.prepare(`
         SELECT device_id, type, value, unit, recorded_at, end_time
         FROM health_records
-        WHERE recorded_at >= ? AND recorded_at < ?
+        WHERE date(recorded_at) = ?
         ORDER BY recorded_at ASC
-      `).all(startOfDay, startOfNextDay) as HealthRecord[];
+      `).all(date) as HealthRecord[];
     }
 
     return Response.json({ date, records });

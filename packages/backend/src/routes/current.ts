@@ -1,4 +1,5 @@
 import { getAllDeviceStates, getRecentActivities } from "../db";
+import { localTimestamp } from "../services/local-time";
 import type { DeviceState, ActivityRecord } from "../types";
 import { visitors } from "../services/visitors";
 
@@ -30,7 +31,7 @@ export function handleCurrent(clientIp: string, userAgent?: string): Response {
   return Response.json({
     devices: preparePublicDevices(devices),
     recent_activities: stripWindowTitle(recentActivities),
-    server_time: new Date().toISOString(),
+    server_time: localTimestamp(),
     viewer_count: visitors.getCount(),
   });
 }

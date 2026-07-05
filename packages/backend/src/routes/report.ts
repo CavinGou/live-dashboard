@@ -3,6 +3,7 @@ import { resolveAppName } from "../services/app-mapper";
 import { isNSFW } from "../services/nsfw-filter";
 import { processDisplayTitle } from "../services/privacy-tiers";
 import { insertActivity, upsertDeviceState, hmacTitle } from "../db";
+import { localTimestamp } from "../services/local-time";
 
 const MAX_TITLE_LENGTH = 256;
 
@@ -40,12 +41,12 @@ export async function handleReport(req: Request): Promise<Response> {
     const now = Date.now();
     // Accept if within ±5 minutes, otherwise use server time
     if (!isNaN(ts.getTime()) && Math.abs(ts.getTime() - now) < 5 * 60 * 1000) {
-      startedAt = ts.toISOString();
+      startedAt = localTimestamp();
     } else {
-      startedAt = new Date().toISOString();
+      startedAt = localTimestamp();
     }
   } else {
-    startedAt = new Date().toISOString();
+    startedAt = localTimestamp();
   }
 
   // NSFW filter - silently discard
@@ -117,7 +118,7 @@ export async function handleReport(req: Request): Promise<Response> {
       appName,
       "",           // window_title: always empty for privacy
       displayTitle,
-      new Date().toISOString(),
+      localTimestamp(),
       extraJson
     );
   } catch (e: any) {

@@ -1,5 +1,6 @@
 import { authenticateToken } from "../middleware/auth";
 import { db } from "../db";
+import { localTimestamp } from "../services/local-time";
 
 /**
  * Accepts health data in the format sent by health-connect-webhook
@@ -40,7 +41,7 @@ function parseTime(raw: unknown): string | null {
   if (typeof raw !== "string" || !raw) return null;
   const d = new Date(raw);
   if (isNaN(d.getTime())) return null;
-  return d.toISOString();
+  return localTimestamp(d);
 }
 
 interface ToInsert {
