@@ -11,7 +11,8 @@ FROM oven/bun:1-alpine
 WORKDIR /app
 
 # Non-root user with writable home
-RUN addgroup -S dashboard && adduser -S dashboard -G dashboard -h /home/dashboard
+RUN apk add --no-cache tzdata && \
+    addgroup -S dashboard && adduser -S dashboard -G dashboard -h /home/dashboard
 
 # Copy backend
 COPY packages/backend/package.json packages/backend/bun.lock* ./
@@ -29,6 +30,7 @@ ENV DB_PATH=/data/live-dashboard.db
 ENV PORT=3000
 ENV NODE_ENV=production
 ENV HOME=/home/dashboard
+ENV TZ=Asia/Shanghai
 
 USER dashboard
 EXPOSE 3000
