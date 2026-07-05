@@ -87,6 +87,32 @@ if (!columnExists("device_states", "extra")) {
   db.run("ALTER TABLE device_states ADD COLUMN extra TEXT DEFAULT '{}'");
 }
 
+// ── Health records table ──
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS health_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    value REAL NOT NULL,
+    unit TEXT NOT NULL,
+    recorded_at TEXT NOT NULL,
+    end_time TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(device_id, type, recorded_at, end_time)
+  )
+`);
+
+db.run(`
+  CREATE INDEX IF NOT EXISTS idx_health_records_recorded
+  ON health_records(recorded_at)
+`);
+
+db.run(`
+  CREATE INDEX IF NOT EXISTS idx_health_records_type
+  ON health_records(type, recorded_at)
+`);
+
 // ── HMAC hash secret validation ──
 
 const HASH_SECRET = process.env.HASH_SECRET || "";

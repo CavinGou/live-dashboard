@@ -1,10 +1,22 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "長青 Now",
-  description: "What is Monika doing right now?",
-};
+const DISPLAY_NAME_PLACEHOLDER = "__LIVE_DASHBOARD_DISPLAY_NAME__";
+const SITE_TITLE_PLACEHOLDER = "__LIVE_DASHBOARD_SITE_TITLE__";
+const SITE_DESCRIPTION_PLACEHOLDER = "__LIVE_DASHBOARD_SITE_DESCRIPTION__";
+const SITE_FAVICON_PLACEHOLDER = "/__LIVE_DASHBOARD_SITE_FAVICON__";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: SITE_TITLE_PLACEHOLDER,
+    description: SITE_DESCRIPTION_PLACEHOLDER,
+    icons: { icon: SITE_FAVICON_PLACEHOLDER },
+    openGraph: {
+      title: SITE_TITLE_PLACEHOLDER,
+      description: SITE_DESCRIPTION_PLACEHOLDER,
+    },
+  };
+}
 
 export default function RootLayout({
   children,
@@ -12,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" data-display-name={DISPLAY_NAME_PLACEHOLDER}>
       <body className="min-h-screen bg-[var(--color-cream)] relative overflow-x-hidden">
         {/* Sakura petal layer */}
         <div className="sakura-container" aria-hidden="true">

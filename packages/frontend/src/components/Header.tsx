@@ -1,3 +1,5 @@
+import { useConfig } from "@/hooks/useConfig";
+
 function getGreeting(): { kaomoji: string; text: string } {
   const hour = new Date().getHours();
   if (hour >= 5 && hour < 9) return { kaomoji: "(* ^ ω ^)", text: "早上好呀~" };
@@ -14,6 +16,7 @@ interface HeaderProps {
 }
 
 export default function Header({ serverTime, viewerCount = 0 }: HeaderProps) {
+  const { displayName } = useConfig();
   const timeStr = (() => {
     if (!serverTime) return "--:--";
     const d = new Date(serverTime);
@@ -29,7 +32,7 @@ export default function Header({ serverTime, viewerCount = 0 }: HeaderProps) {
         {/* Left: title + greeting */}
         <div>
           <h1 className="text-xl font-bold font-[var(--font-jp)] text-[var(--color-text)] leading-tight">
-            長青 Now
+            {displayName} Now
           </h1>
           <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
             <span className="mr-1">{greeting.kaomoji}</span>
