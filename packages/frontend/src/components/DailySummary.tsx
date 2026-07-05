@@ -12,11 +12,22 @@ export default function DailySummary({ selectedDate }: Props) {
 
   useEffect(() => {
     const controller = new AbortController();
-    setData(null);
-    fetchDailySummary(selectedDate, controller.signal)
-      .then((d) => setData(d))
-      .catch(() => {});
-    return () => controller.abort();
+
+    function load() {
+      fetchDailySummary(selectedDate, controller.signal)
+        .then((d) => setData(d))
+        .catch(() => {});
+    }
+
+    load();
+
+    // Auto-refresh every 60 seconds to pick up new summaries
+    const interval = setInterval(load, 60_000);
+
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [selectedDate]);
 
   const summary = data?.summary;
