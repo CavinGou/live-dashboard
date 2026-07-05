@@ -14,6 +14,9 @@ services:
       - SITE_TITLE=${SITE_TITLE}
       - SITE_DESC=${SITE_DESC}
       - SITE_FAVICON=${SITE_FAVICON}
+      - AI_API_URL=${AI_API_URL}
+      - AI_API_KEY=${AI_API_KEY}
+      - AI_MODEL=${AI_MODEL}
     ports:
       - "3000:3000"
     volumes:
