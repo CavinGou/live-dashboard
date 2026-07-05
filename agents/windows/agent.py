@@ -21,14 +21,42 @@ import requests
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
-LOG_FILE = Path(__file__).with_name("agent.log")
+
+def get_runtime_dir() -> Path:
+    """Directory where config/exe should live.
+
+    - Script mode: directory of agent.py
+    - PyInstaller onefile: directory of the .exe (not _MEIPASS temp dir)
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+def get_log_file() -> Path:
+    """Prefer per-user writable log path; fallback to runtime directory."""
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if local_appdata:
+        log_dir = Path(local_appdata) / "live-dashboard-agent"
+        try:
+            log_dir.mkdir(parents=True, exist_ok=True)
+            return log_dir / "agent.log"
+        except OSError:
+            pass
+    return get_runtime_dir() / "agent.log"
+
+
+LOG_FILE = get_log_file()
+_log_handlers: list[logging.Handler] = [logging.StreamHandler()]
+try:
+    _log_handlers.insert(0, logging.FileHandler(LOG_FILE, encoding="utf-8"))
+except OSError:
+    pass
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_FILE, encoding="utf-8"),
-        logging.StreamHandler(),
-    ],
+    handlers=_log_handlers,
 )
 log = logging.getLogger("agent")
 
@@ -302,7 +330,7 @@ def validate_server_url(url: str) -> None:
 # ---------------------------------------------------------------------------
 def load_config() -> dict:
     """Load config.json from the same directory as this script."""
-    config_path = Path(__file__).with_name("config.json")
+    config_path = get_runtime_dir() / "config.json"
     try:
         with open(config_path, "r", encoding="utf-8") as f:
             cfg = json.load(f)

@@ -68,3 +68,16 @@ export async function fetchTimeline(date: string, signal?: AbortSignal): Promise
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
+
+export interface DailySummaryResponse {
+  date: string;
+  summary: string | null;
+  generated_at: string | null;
+}
+
+export async function fetchDailySummary(date: string, signal?: AbortSignal): Promise<DailySummaryResponse> {
+  const url = `${API_BASE}/api/daily-summary?date=${encodeURIComponent(date)}`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}

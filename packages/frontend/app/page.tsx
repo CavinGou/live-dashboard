@@ -7,6 +7,7 @@ import CurrentStatus from "@/components/CurrentStatus";
 import DeviceCard from "@/components/DeviceCard";
 import DatePicker from "@/components/DatePicker";
 import Timeline from "@/components/Timeline";
+import DailySummary from "@/components/DailySummary";
 
 export default function Home() {
   const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard();
@@ -87,6 +88,9 @@ export default function Home() {
                   <DeviceCard key={d.device_id} device={d} />
                 ))
               )}
+
+              {/* AI Daily Summary */}
+              <DailySummary selectedDate={selectedDate} />
             </div>
 
             {/* Right: timeline (wide) */}
@@ -122,7 +126,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="mt-12 pt-4 separator-dashed text-center">
         <p className="text-[10px] text-[var(--color-text-muted)]">
-          Monika Now &middot; 每 10 秒自动刷新 &middot; (◕ᴗ◕)
+          長青 Now &middot; 每 10 秒自动刷新 &middot; (◕ᴗ◕)
         </p>
       </footer>
     </>
