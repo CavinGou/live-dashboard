@@ -3,7 +3,6 @@ import {
   getTimelineByDateAndDevice,
 } from "../db";
 import type { ActivityRecord, TimelineSegment } from "../types";
-import { db } from "../db";
 import { localTimestamp } from "../services/local-time";
 
 export function handleTimeline(url: URL): Response {
@@ -15,36 +14,13 @@ export function handleTimeline(url: URL): Response {
     );
   }
 
-  // Accept timezone offset in minutes (e.g. -480 for UTC+8)
-  const tzParam = url.searchParams.get("tz");
-  const tzOffsetMinutes = tzParam ? parseInt(tzParam, 10) : 0;
-
   const deviceId = url.searchParams.get("device_id");
 
+  // Data is stored in local time, query directly by date
   let activities: ActivityRecord[];
-
-  if (tzOffsetMinutes && !isNaN(tzOffsetMinutes) && Math.abs(tzOffsetMinutes) <= 840) {
-    // Convert offset minutes to SQLite time modifier format (e.g. "+08:00" for tz=-480)
-    const offsetHours = -tzOffsetMinutes / 60;
-    const sign = offsetHours >= 0 ? "+" : "-";
-    const absH = Math.floor(Math.abs(offsetHours));
-    const absM = Math.round((Math.abs(offsetHours) - absH) * 60);
-    const modifier = `${sign}${String(absH).padStart(2, "0")}:${String(absM).padStart(2, "0")}`;
-
-    // Query with timezone adjustment: convert started_at to user's local date
-    const query = deviceId
-      ? db.prepare(`SELECT * FROM activities WHERE date(started_at, '${modifier}') = ? AND device_id = ? ORDER BY started_at ASC`)
-      : db.prepare(`SELECT * FROM activities WHERE date(started_at, '${modifier}') = ? ORDER BY started_at ASC`);
-
-    activities = deviceId
-      ? (query.all(date, deviceId) as ActivityRecord[])
-      : (query.all(date) as ActivityRecord[]);
-  } else {
-    // No timezone offset — use UTC (backwards compatible)
-    activities = deviceId
-      ? (getTimelineByDateAndDevice.all(date, deviceId) as ActivityRecord[])
-      : (getTimelineByDate.all(date) as ActivityRecord[]);
-  }
+  activities = deviceId
+    ? (getTimelineByDateAndDevice.all(date, deviceId) as ActivityRecord[])
+    : (getTimelineByDate.all(date) as ActivityRecord[]);
 
   // Build timeline segments with duration
   // Gap threshold: if time between two consecutive activities exceeds this,

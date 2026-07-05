@@ -102,40 +102,8 @@ export function handleHealthDataQuery(url: URL): Response {
     return Response.json({ error: "date parameter required (YYYY-MM-DD)" }, { status: 400 });
   }
 
-  // Accept timezone offset in minutes (e.g. -480 for UTC+8), same as /api/timeline
-  const tzParam = url.searchParams.get("tz");
-  const tzOffsetMinutes = tzParam ? parseInt(tzParam, 10) : 0;
-
   try {
-    if (tzOffsetMinutes && !isNaN(tzOffsetMinutes) && Math.abs(tzOffsetMinutes) <= 840) {
-      // Convert offset to SQLite modifier (e.g. tz=-480 → "+08:00")
-      const offsetHours = -tzOffsetMinutes / 60;
-      const sign = offsetHours >= 0 ? "+" : "-";
-      const absH = Math.floor(Math.abs(offsetHours));
-      const absM = Math.round((Math.abs(offsetHours) - absH) * 60);
-      const modifier = `${sign}${String(absH).padStart(2, "0")}:${String(absM).padStart(2, "0")}`;
-
-      let records: HealthRecord[];
-      if (deviceId) {
-        records = db.prepare(`
-          SELECT device_id, type, value, unit, recorded_at, end_time
-          FROM health_records
-          WHERE date(recorded_at, '${modifier}') = ? AND device_id = ?
-          ORDER BY recorded_at ASC
-        `).all(date, deviceId) as HealthRecord[];
-      } else {
-        records = db.prepare(`
-          SELECT device_id, type, value, unit, recorded_at, end_time
-          FROM health_records
-          WHERE date(recorded_at, '${modifier}') = ?
-          ORDER BY recorded_at ASC
-        `).all(date) as HealthRecord[];
-      }
-
-      return Response.json({ date, records });
-    }
-
-    // No timezone offset — query by local date
+    // Data is stored in local time, query directly by date
     let records: HealthRecord[];
     if (deviceId) {
       records = db.prepare(`
@@ -143,6 +111,15 @@ export function handleHealthDataQuery(url: URL): Response {
         FROM health_records
         WHERE date(recorded_at) = ? AND device_id = ?
         ORDER BY recorded_at ASC
+      `).all(date, deviceId) as HealthRecord[];
+    } else {
+      records = db.prepare(`
+        SELECT device_id, type, value, unit, recorded_at, end_time
+        FROM health_records
+        WHERE date(recorded_at) = ?
+        ORDER BY recorded_at ASC
+      `).all(date) as HealthRecord[];
+    }
       `).all(date, deviceId) as HealthRecord[];
     } else {
       records = db.prepare(`

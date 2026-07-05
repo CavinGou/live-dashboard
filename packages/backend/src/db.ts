@@ -174,11 +174,11 @@ export const markOfflineDevices = db.prepare(`
   UPDATE device_states SET is_online = 0
   WHERE is_online = 1
   AND (last_seen_at IS NULL OR last_seen_at = '' OR datetime(last_seen_at) IS NULL
-       OR datetime(last_seen_at) < datetime('now', '-1 minute'))
+       OR datetime(last_seen_at) < datetime('now', 'localtime', '-1 minute'))
 `);
 
 export const cleanupOldActivities = db.prepare(`
-  DELETE FROM activities WHERE created_at < datetime('now', '-7 days')
+  DELETE FROM activities WHERE created_at < datetime('now', 'localtime', '-7 days')
 `);
 
 // Daily summaries table (AI-generated, kept 7 days)
@@ -186,16 +186,16 @@ db.run(`
   CREATE TABLE IF NOT EXISTS daily_summaries (
     date TEXT PRIMARY KEY,
     summary TEXT NOT NULL,
-    generated_at TEXT DEFAULT (datetime('now'))
+    generated_at TEXT DEFAULT (datetime('now', 'localtime'))
   )
 `);
 
 export const upsertDailySummary = db.prepare(`
   INSERT INTO daily_summaries (date, summary, generated_at)
-  VALUES (?, ?, datetime('now'))
+  VALUES (?, ?, datetime('now', 'localtime'))
   ON CONFLICT(date) DO UPDATE SET
     summary = excluded.summary,
-    generated_at = datetime('now')
+    generated_at = datetime('now', 'localtime')
 `);
 
 export const getDailySummary = db.prepare(`
@@ -203,7 +203,7 @@ export const getDailySummary = db.prepare(`
 `);
 
 export const cleanupOldSummaries = db.prepare(`
-  DELETE FROM daily_summaries WHERE date < date('now', '-7 days')
+  DELETE FROM daily_summaries WHERE date < date('now', 'localtime', '-7 days')
 `);
 
 export default db;
