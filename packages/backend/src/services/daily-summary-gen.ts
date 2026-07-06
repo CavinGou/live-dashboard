@@ -52,7 +52,9 @@ function buildUserPrompt(rows: ActivityRow[]): string {
     if (r.display_title) app.titles.add(r.display_title);
   }
 
-  const lines: string[] = [`日期: ${todayStr()}`];
+  const now = new Date();
+  const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const lines: string[] = [`日期: ${todayStr()}`, `当前时间: ${currentTime}`];
   if (timeRange) lines.push(`活动时段: ${timeRange}`);
   for (const [dev, apps] of byDevice) {
     lines.push(`\n[${dev}]`);
