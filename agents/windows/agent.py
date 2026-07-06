@@ -194,6 +194,8 @@ _MUSIC_PROCESS_MAP: dict[str, str] = {
 def _parse_spotify_title(title: str) -> tuple[str, str] | None:
     if title in ("Spotify", "Spotify Free", "Spotify Premium"):
         return None
+    if _is_junk_music_title(title):
+        return None
     if " - " in title:
         artist, song = title.split(" - ", 1)
         return song.strip(), artist.strip()
@@ -203,6 +205,9 @@ def _parse_spotify_title(title: str) -> tuple[str, str] | None:
 def _parse_dash_title(title: str, app_suffix: str = "") -> tuple[str, str] | None:
     if app_suffix and title.rstrip() == app_suffix:
         return None
+    # Skip junk / overlay titles (e.g. NetEase Cloud Music desktop lyrics mode)
+    if _is_junk_music_title(title):
+        return None
     if " - " in title:
         song, artist = title.split(" - ", 1)
         return song.strip(), artist.strip()
@@ -210,6 +215,8 @@ def _parse_dash_title(title: str, app_suffix: str = "") -> tuple[str, str] | Non
 
 
 def _parse_foobar_title(title: str) -> tuple[str, str] | None:
+    if _is_junk_music_title(title):
+        return None
     import re
     cleaned = re.sub(r"\s*\[foobar2000[^\]]*\]\s*$", "", title)
     if not cleaned or cleaned == title:
@@ -221,6 +228,83 @@ def _parse_foobar_title(title: str) -> tuple[str, str] | None:
         artist, song = cleaned.split(" - ", 1)
         return song.strip(), artist.strip()
     return cleaned, ""
+
+
+# ── Junk music title detection and SMTC fallback ──
+
+_SMTC_CACHE: dict = {}
+_SMTC_CACHE_LOCK = threading.Lock()
+_SMTC_CACHE_TTL = 30
+
+_SMTC_PS_SCRIPT = """
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+$null = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.System, ContentType=WindowsRuntime]
+$task = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()
+$manager = $task.GetAwaiter().GetResult()
+$session = $manager.GetCurrentSession()
+if ($session -eq $null) { Write-Output 'null'; exit 0 }
+$mediaTask = $session.TryGetMediaPropertiesAsync()
+$mediaProps = $mediaTask.GetAwaiter().GetResult()
+if ($mediaProps -eq $null) { Write-Output 'null'; exit 0 }
+$info = @{
+    title = $mediaProps.Title
+    artist = $mediaProps.Artist
+    appId = $mediaProps.SourceAppUserModelId
+}
+Write-Output ($info | ConvertTo-Json -Compress)
+"""
+
+
+def _is_junk_music_title(title: str) -> bool:
+    """Check if a music window title is a junk/overlay with no real song info."""
+    if not title:
+        return True
+    lower = title.lower().strip()
+    if lower in ("桌面歌词", "desktop lyrics", "lyrics", "", "未知", "unknown"):
+        return True
+    if "桌面歌词" in lower:
+        return True
+    # Empty state patterns for music apps
+    if lower in ("spotify", "spotify free", "spotify premium", "cloudmusic", "cloudmusic.exe"):
+        return True
+    return False
+
+
+def _query_smtc_powershell() -> dict | None:
+    """Query SMTC via PowerShell to get current media info."""
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", _SMTC_PS_SCRIPT],
+            capture_output=True, text=True, timeout=5,
+            creationflags=0x08000000,  # CREATE_NO_WINDOW
+        )
+        if result.returncode != 0:
+            log.debug("SMTC PS returned code %d", result.returncode)
+            return None
+        output = result.stdout.strip()
+        if not output or output == "null":
+            return None
+        return json.loads(output)
+    except subprocess.TimeoutExpired:
+        log.debug("SMTC PS timed out")
+        return None
+    except Exception as e:
+        log.debug("SMTC PS error: %s", e)
+        return None
+
+
+def _get_smtc_info() -> dict | None:
+    """Get cached SMTC media info, refreshing if TTL expired."""
+    global _SMTC_CACHE
+    now = time.time()
+    with _SMTC_CACHE_LOCK:
+        if _SMTC_CACHE and (now - _SMTC_CACHE.get("_ts", 0)) < _SMTC_CACHE_TTL:
+            return _SMTC_CACHE.get("data")
+
+    info = _query_smtc_powershell()
+    with _SMTC_CACHE_LOCK:
+        _SMTC_CACHE = {"data": info, "_ts": now}
+    return info
 
 
 def get_music_info() -> dict | None:
@@ -266,8 +350,38 @@ def get_music_info() -> dict | None:
         return None
 
     if not results:
+        # Window scan didn't find music info — try SMTC fallback
+        smtc = _get_smtc_info()
+        if smtc:
+            title = (smtc.get("title") or "").strip()
+            artist = (smtc.get("artist") or "").strip()
+            if title:
+                return {
+                    "app": smtc.get("appId", "music"),
+                    "title": title[:256],
+                    "artist": artist[:256] if artist else "",
+                }
         return None
-    app, title, artist = results[0]
+
+    # Filter out junk results (all parsed titles were junk/overlay)
+    valid = [(a, t, ar) for a, t, ar in results if t and not _is_junk_music_title(t)]
+    if not valid:
+        # All found music windows have junk titles — try SMTC fallback
+        smtc = _get_smtc_info()
+        if smtc:
+            title = (smtc.get("title") or "").strip()
+            artist = (smtc.get("artist") or "").strip()
+            if title:
+                # Use the first music app name from results for display
+                app_name = results[0][0]
+                return {
+                    "app": app_name,
+                    "title": title[:256],
+                    "artist": artist[:256] if artist else "",
+                }
+        return None
+
+    app, title, artist = valid[0]
     info: dict[str, str] = {"app": app}
     if title:
         info["title"] = title[:256]
