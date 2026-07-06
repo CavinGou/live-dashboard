@@ -1,24 +1,40 @@
+import { readFile } from "node:fs/promises";
 import { getTimelineByDate, upsertDailySummary } from "../db";
 
 /**
  * AI Daily Summary Generator
  *
  * Env vars (all optional — if not set, generation is silently skipped):
- *   AI_API_URL   — OpenAI-compatible chat endpoint (e.g. https://api.openai.com/v1/chat/completions)
- *   AI_API_KEY   — Bearer token for the API
- *   AI_MODEL     — Model name (default: gpt-4o-mini)
+ *   AI_API_URL        — OpenAI-compatible chat endpoint (e.g. https://api.openai.com/v1/chat/completions)
+ *   AI_API_KEY        — Bearer token for the API
+ *   AI_MODEL          — Model name (default: gpt-4o-mini)
+ *   AI_PROMPT_FILE    — Path to a file containing the system prompt (falls back to built-in default)
  */
 
 const AI_API_URL = process.env.AI_API_URL || "";
 const AI_API_KEY = process.env.AI_API_KEY || "";
 const AI_MODEL = process.env.AI_MODEL || "gpt-4o-mini";
 
-const SYSTEM_PROMPT = `你是一个简洁文艺的日记助手。根据用户今天目前为止在各设备上的使用记录，写一段100-150字的中文随笔。
+const DEFAULT_PROMPT = `你是一个简洁文艺的日记助手。根据用户今天目前为止在各设备上的使用记录，写一段100-150字的中文随笔。
 要求：
 - 语气温暖、自然，像朋友在记录今天的片段
 - 描述到目前为止的活动节奏，让人觉得"这一天还在继续"
 - 不要逐条罗列活动，而是提炼出整体节奏
 - 不要超过150字`;
+
+async function getSystemPrompt(): Promise<string> {
+  const promptFile = process.env.AI_PROMPT_FILE;
+  if (promptFile) {
+    try {
+      const content = await readFile(promptFile, "utf-8");
+      const trimmed = content.trim();
+      if (trimmed) return trimmed;
+    } catch {
+      console.warn(`[ai-summary] Failed to read AI_PROMPT_FILE: ${promptFile}, falling back`);
+    }
+  }
+  return DEFAULT_PROMPT;
+}
 
 interface ActivityRow {
   device_name: string;
@@ -91,7 +107,7 @@ export async function generateDailySummary(): Promise<void> {
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: await getSystemPrompt() },
           { role: "user", content: userPrompt },
         ],
         max_tokens: 500,
