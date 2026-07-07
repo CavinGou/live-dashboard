@@ -178,6 +178,13 @@ registerTier("hide", [
   "相机", "相册", "计算器", "日历", "时钟", "手机管家",
 ]);
 
+// HIDE — FTP/SSH clients (connection details are sensitive)
+registerTier("hide", [
+  "FileZilla", "WinSCP", "PuTTY", "MobaXterm",
+  "Termius", "Xshell", "SecureCRT", "Bitvise SSH Client",
+  "Cyberduck", "Transmit",
+]);
+
 // HIDE — download / cloud / remote / meeting
 registerTier("hide", [
   "qBittorrent", "µTorrent", "BitComet", "迅雷",

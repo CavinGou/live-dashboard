@@ -13,10 +13,12 @@ function getGreeting(): { kaomoji: string; text: string } {
 interface HeaderProps {
   serverTime?: string;
   viewerCount?: number;
+  displayName?: string;
 }
 
-export default function Header({ serverTime, viewerCount = 0 }: HeaderProps) {
-  const { displayName } = useConfig();
+export default function Header({ serverTime, viewerCount = 0, displayName: displayNameProp }: HeaderProps) {
+  const { displayName: configDisplayName } = useConfig();
+  const displayName = displayNameProp ?? configDisplayName;
   const timeStr = (() => {
     if (!serverTime) return "--:--";
     const d = new Date(serverTime);

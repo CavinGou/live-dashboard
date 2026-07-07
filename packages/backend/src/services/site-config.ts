@@ -3,6 +3,14 @@ export interface SiteConfig {
   siteTitle: string;
   siteDescription: string;
   siteFavicon: string;
+  dashboards: DashboardProfile[];
+}
+
+export interface DashboardProfile {
+  id: string;
+  name: string;
+  url: string;
+  description?: string;
 }
 
 export const DISPLAY_NAME_PLACEHOLDER = "__LIVE_DASHBOARD_DISPLAY_NAME__";
@@ -13,6 +21,8 @@ export const SITE_FAVICON_PLACEHOLDER = "/__LIVE_DASHBOARD_SITE_FAVICON__";
 const DEFAULT_DISPLAY_NAME = "Monika";
 const DEFAULT_FAVICON = "/favicon.ico";
 const SCRIPT_TAG_PATTERN = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
+const DEFAULT_DASHBOARDS: DashboardProfile[] = [];
+const RESERVED_DASHBOARD_ID = "local";
 
 function nonEmpty(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -29,6 +39,89 @@ function isValidFaviconUrl(url: string): boolean {
   }
 }
 
+function normalizeDashboardUrl(url: string | undefined): string | undefined {
+  const trimmed = nonEmpty(url);
+  if (!trimmed) return undefined;
+
+  try {
+    const parsed = new URL(trimmed);
+    // Allow http for LAN/local deployments; https remains recommended for public dashboards.
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return undefined;
+    parsed.hash = "";
+    parsed.search = "";
+    parsed.pathname = parsed.pathname.replace(/\/+$/, "") || "/";
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeDashboardId(id: string | undefined): string | undefined {
+  const trimmed = nonEmpty(id);
+  if (!trimmed) return undefined;
+  if (trimmed.toLowerCase() === RESERVED_DASHBOARD_ID) return undefined;
+  return trimmed;
+}
+
+function parseDashboardList(raw: string): unknown[] {
+  const candidates: string[] = [raw];
+
+  const quoted = raw.match(/^(["'])([\s\S]*)\1$/);
+  if (quoted?.[2]) {
+    candidates.push(quoted[2]);
+  }
+
+  if (raw.includes('""')) {
+    candidates.push(raw.replaceAll('""', '"'));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // Continue trying other candidate formats.
+    }
+  }
+
+  return [];
+}
+
+function toDashboardProfile(value: unknown): DashboardProfile | undefined {
+  if (!value || typeof value !== "object") return undefined;
+
+  const record = value as Record<string, unknown>;
+  const id = normalizeDashboardId(typeof record.id === "string" ? record.id : undefined);
+  const name = nonEmpty(typeof record.name === "string" ? record.name : undefined);
+  const url = normalizeDashboardUrl(typeof record.url === "string" ? record.url : undefined);
+  const description = nonEmpty(
+    typeof record.description === "string" ? record.description : undefined,
+  );
+
+  if (!id || !name || !url) return undefined;
+
+  return { id, name, url, description };
+}
+
+function getDashboards(): DashboardProfile[] {
+  const raw = nonEmpty(process.env.EXTERNAL_DASHBOARDS);
+  if (!raw) return DEFAULT_DASHBOARDS;
+
+  const parsed = parseDashboardList(raw);
+  if (parsed.length === 0) return DEFAULT_DASHBOARDS;
+
+  const uniqueDashboards = new Map<string, DashboardProfile>();
+  for (const entry of parsed) {
+    const dashboard = toDashboardProfile(entry);
+    if (!dashboard) continue;
+    if (!uniqueDashboards.has(dashboard.id)) {
+      uniqueDashboards.set(dashboard.id, dashboard);
+    }
+  }
+
+  return uniqueDashboards.size > 0 ? Array.from(uniqueDashboards.values()) : DEFAULT_DASHBOARDS;
+}
+
 export function getSiteConfig(): SiteConfig {
   const displayName = nonEmpty(process.env.DISPLAY_NAME) ?? DEFAULT_DISPLAY_NAME;
   const siteTitle = nonEmpty(process.env.SITE_TITLE) ?? `${displayName} Now`;
@@ -41,6 +134,7 @@ export function getSiteConfig(): SiteConfig {
     siteTitle,
     siteDescription,
     siteFavicon: isValidFaviconUrl(rawFavicon) ? rawFavicon : DEFAULT_FAVICON,
+    dashboards: getDashboards(),
   };
 }
 

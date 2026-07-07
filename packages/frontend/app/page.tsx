@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useConfig, useConfigLoader, ConfigContext } from "@/hooks/useConfig";
-import type { DeviceState } from "@/lib/api";
-import { fetchHealthData } from "@/lib/api";
+import type { CurrentResponse, DashboardProfile, DeviceState } from "@/lib/api";
+import { fetchCurrent, fetchHealthData } from "@/lib/api";
 import Header from "@/components/Header";
 import CurrentStatus from "@/components/CurrentStatus";
 import DeviceCard from "@/components/DeviceCard";
@@ -12,6 +12,19 @@ import DatePicker from "@/components/DatePicker";
 import Timeline from "@/components/Timeline";
 import HealthData from "@/components/HealthData";
 import SiteMetadataSync from "@/components/SiteMetadataSync";
+
+interface DashboardOption extends DashboardProfile {
+  isPrimary: boolean;
+}
+
+interface DashboardSnapshot extends DashboardOption {
+  onlineDevices: number;
+  totalDevices: number;
+  viewerCount: number;
+  activeLabel: string;
+  statusText: string;
+  reachable: boolean;
+}
 
 export default function Home() {
   const config = useConfigLoader();
@@ -25,107 +38,187 @@ export default function Home() {
 }
 
 function HomeInner() {
-  const { displayName } = useConfig();
-  const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard();
+  const config = useConfig();
+  const { displayName } = config;
+  const dashboards = useMemo<DashboardOption[]>(() => {
+    return [
+      {
+        id: "local",
+        name: displayName,
+        url: "",
+        description: `${displayName} 的主面板`,
+        isPrimary: true,
+      },
+      ...config.dashboards.map((dashboard) => ({
+        ...dashboard,
+        isPrimary: false,
+      })),
+    ];
+  }, [config.dashboards, displayName]);
 
-  // Selected device for CurrentStatus bubble
+  const [selectedDashboardId, setSelectedDashboardId] = useState("local");
+  const [dashboardSnapshots, setDashboardSnapshots] = useState<Record<string, DashboardSnapshot>>({});
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-
-  // Tab state (lifted from RightPanelTabs for conditional rendering)
   const [tab, setTab] = useState<"activity" | "health">("activity");
-
-  // Check if health data exists for the selected date
   const [hasHealthData, setHasHealthData] = useState(false);
 
-  // Reset tab to activity if health data disappears
+  useEffect(() => {
+    if (!dashboards.some((dashboard) => dashboard.id === selectedDashboardId)) {
+      setSelectedDashboardId("local");
+    }
+  }, [dashboards, selectedDashboardId]);
+
+  const activeDashboard = useMemo(() => {
+    return dashboards.find((dashboard) => dashboard.id === selectedDashboardId) ?? dashboards[0];
+  }, [dashboards, selectedDashboardId]);
+  const activeDashboardId = activeDashboard?.isPrimary ? undefined : activeDashboard?.id;
+  const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard(activeDashboardId);
+
+  useEffect(() => {
+    setSelectedDeviceId(null);
+    setTab("activity");
+  }, [selectedDashboardId]);
+
+  useEffect(() => {
+    let disposed = false;
+
+    const loadSnapshots = async () => {
+      const entries = await Promise.all(
+        dashboards.map(async (dashboard) => {
+          try {
+            const response = await fetchCurrent(
+              undefined,
+              dashboard.isPrimary ? undefined : { dashboardId: dashboard.id },
+            );
+            return [dashboard.id, buildDashboardSnapshot(dashboard, response)] as const;
+          } catch {
+            return [dashboard.id, buildDashboardSnapshot(dashboard, null)] as const;
+          }
+        }),
+      );
+
+      if (!disposed) {
+        setDashboardSnapshots(Object.fromEntries(entries));
+      }
+    };
+
+    loadSnapshots();
+    const timer = window.setInterval(loadSnapshots, 10_000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [dashboards]);
+
   useEffect(() => {
     if (!hasHealthData && tab === "health") setTab("activity");
   }, [hasHealthData, tab]);
 
-  // Build currentAppByDevice map for Timeline
   const currentAppByDevice = useMemo(() => {
     const map: Record<string, string> = {};
     if (current?.devices) {
-      for (const d of current.devices) {
-        if (d.is_online === 1 && d.app_name) {
-          map[d.device_id] = d.app_name;
+      for (const device of current.devices) {
+        if (device.is_online === 1 && device.app_name) {
+          map[device.device_id] = device.app_name;
         }
       }
     }
     return map;
   }, [current?.devices]);
 
-  // Night mode: activate when all devices are offline (Monika sleeping)
   const allOffline = useMemo(() => {
     if (!current?.devices || current.devices.length === 0) return false;
-    return current.devices.every((d) => d.is_online !== 1);
+    return current.devices.every((device) => device.is_online !== 1);
   }, [current?.devices]);
 
-  // Stable device order: sort by device_id so they never jump around
   const devices = useMemo(() => {
-    const arr = current?.devices ?? [];
-    return [...arr].sort((a, b) => a.device_id.localeCompare(b.device_id));
+    const list = current?.devices ?? [];
+    return [...list].sort((left, right) => left.device_id.localeCompare(right.device_id));
   }, [current?.devices]);
 
-  // Auto-select: default to first online device, fallback to first device
   const selectedDevice = useMemo(() => {
     if (devices.length === 0) return undefined;
     if (selectedDeviceId) {
-      const found = devices.find((d) => d.device_id === selectedDeviceId);
+      const found = devices.find((device) => device.device_id === selectedDeviceId);
       if (found) return found;
     }
-    return devices.find((d) => d.is_online === 1) || devices[0];
+    return devices.find((device) => device.is_online === 1) || devices[0];
   }, [devices, selectedDeviceId]);
 
-  // Check if health data exists for the selected date + device
   const selectedDeviceIdResolved = selectedDevice?.device_id;
+
   useEffect(() => {
-    // Don't fetch until we have both a date and a resolved device
     if (!selectedDate || !selectedDeviceIdResolved) {
       setHasHealthData(false);
       return;
     }
-    setHasHealthData(false); // reset immediately on device/date change
+
     const controller = new AbortController();
-    fetchHealthData(selectedDate, controller.signal, selectedDeviceIdResolved)
-      .then((d) => {
+    setHasHealthData(false);
+
+    fetchHealthData(
+      selectedDate,
+      controller.signal,
+      selectedDeviceIdResolved,
+      activeDashboardId ? { dashboardId: activeDashboardId } : undefined,
+    )
+      .then((result) => {
         if (!controller.signal.aborted) {
-          setHasHealthData(d.records.length > 0);
+          setHasHealthData(result.records.length > 0);
         }
       })
       .catch(() => {
-        if (!controller.signal.aborted) setHasHealthData(false);
+        if (!controller.signal.aborted) {
+          setHasHealthData(false);
+        }
       });
-    return () => controller.abort();
-  }, [selectedDate, selectedDeviceIdResolved]);
 
-  // Filter timeline data by selected device
+    return () => controller.abort();
+  }, [activeDashboardId, selectedDate, selectedDeviceIdResolved]);
+
   const filteredTimeline = useMemo(() => {
     if (!timeline || !selectedDevice) return timeline;
-    const did = selectedDevice.device_id;
-    const segs = timeline.segments ?? [];
-    const sum = timeline.summary ?? {};
+    const deviceId = selectedDevice.device_id;
+    const segments = timeline.segments ?? [];
+    const summary = timeline.summary ?? {};
     return {
       ...timeline,
-      segments: segs.filter((s) => s.device_id === did),
-      summary: did in sum ? { [did]: sum[did] } : {},
+      segments: segments.filter((segment) => segment.device_id === deviceId),
+      summary: deviceId in summary ? { [deviceId]: summary[deviceId] } : {},
     };
   }, [timeline, selectedDevice]);
 
+  const resolvedSnapshots = useMemo(() => {
+    return dashboards.map((dashboard) => {
+      return dashboardSnapshots[dashboard.id] ?? buildDashboardSnapshot(dashboard, null);
+    });
+  }, [dashboardSnapshots, dashboards]);
+
   useEffect(() => {
     document.body.classList.toggle("night-mode", allOffline);
-    return () => { document.body.classList.remove("night-mode"); };
+    return () => {
+      document.body.classList.remove("night-mode");
+    };
   }, [allOffline]);
 
   return (
     <>
-      <Header serverTime={current?.server_time} viewerCount={viewerCount} />
+      <Header
+        serverTime={current?.server_time}
+        viewerCount={viewerCount}
+        displayName={activeDashboard?.name ?? displayName}
+      />
 
-      {/* Error banner */}
+      <DashboardSwitcher
+        dashboards={resolvedSnapshots}
+        selectedDashboardId={activeDashboard?.id ?? "local"}
+        onSelect={setSelectedDashboardId}
+      />
+
       {error && (
         <div className="vn-bubble mb-4 border-[var(--color-primary)]">
           <p className="text-sm text-[var(--color-primary)]">
-            (&gt;_&lt;) 连接失败了喵...
+            (&gt;_&lt;) {activeDashboard?.name ?? displayName} 的面板连接失败了喵...
           </p>
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
             别担心，会自动重试的~
@@ -133,7 +226,6 @@ function HomeInner() {
         </div>
       )}
 
-      {/* Loading state */}
       {loading && !current && (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <p className="text-2xl">(=^-ω-^=)</p>
@@ -146,13 +238,22 @@ function HomeInner() {
         </div>
       )}
 
+      <section className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {resolvedSnapshots.map((dashboard) => (
+          <DashboardOverviewCard
+            key={dashboard.id}
+            dashboard={dashboard}
+            selected={dashboard.id === activeDashboard?.id}
+            onSelect={() => setSelectedDashboardId(dashboard.id)}
+          />
+        ))}
+      </section>
+
       {current && (
         <>
-          {/* Current status - prominent VN dialog */}
-          <CurrentStatus device={selectedDevice} />
+          <CurrentStatus device={selectedDevice} displayName={activeDashboard?.name} />
 
           <div className="flex flex-col lg:flex-row gap-6">
-            {/* Left: device cards (narrow) */}
             <div className="lg:w-56 flex-shrink-0 space-y-2">
               <h2 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
                 Devices
@@ -165,25 +266,24 @@ function HomeInner() {
                   </p>
                 </div>
               ) : (
-                devices.map((d) => (
+                devices.map((device) => (
                   <DeviceCard
-                    key={d.device_id}
-                    device={d}
-                    selected={selectedDevice?.device_id === d.device_id}
-                    onSelect={() => setSelectedDeviceId(d.device_id)}
+                    key={device.device_id}
+                    device={device}
+                    selected={selectedDevice?.device_id === device.device_id}
+                    onSelect={() => setSelectedDeviceId(device.device_id)}
                   />
                 ))
               )}
             </div>
 
-            {/* Right: timeline + health (wide) */}
             <div className="flex-1 min-w-0">
-              {/* Date picker + tab buttons on same line */}
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <DatePicker selectedDate={selectedDate} onChange={changeDate} />
                 {hasHealthData && (
                   <div className="flex gap-1">
                     <button
+                      type="button"
                       onClick={() => setTab("activity")}
                       className={`pill-btn text-xs px-3 py-1 ${
                         tab === "activity"
@@ -194,6 +294,7 @@ function HomeInner() {
                       活动
                     </button>
                     <button
+                      type="button"
                       onClick={() => setTab("health")}
                       className={`pill-btn text-xs px-3 py-1 ${
                         tab === "health"
@@ -209,12 +310,8 @@ function HomeInner() {
 
               <div className="separator-dashed mb-3" />
 
-              {/* Device overview - compact, below dashed line */}
-              {devices.length > 1 && (
-                <DeviceOverview devices={devices} />
-              )}
+              {devices.length > 1 && <DeviceOverview devices={devices} />}
 
-              {/* Tab content */}
               {tab === "activity" ? (
                 <>
                   {loading && filteredTimeline ? (
@@ -234,20 +331,142 @@ function HomeInner() {
                   ) : null}
                 </>
               ) : (
-                <HealthData selectedDate={selectedDate} deviceId={selectedDevice?.device_id} />
+                <HealthData
+                  selectedDate={selectedDate}
+                  deviceId={selectedDevice?.device_id}
+                  dashboardId={activeDashboardId}
+                />
               )}
             </div>
           </div>
         </>
       )}
 
-      {/* Footer */}
       <footer className="mt-12 pt-4 separator-dashed text-center">
         <p className="text-[10px] text-[var(--color-text-muted)]">
-          {displayName} Now &middot; 每 10 秒自动刷新 &middot; (◕ᴗ◕)
+          {displayName} Now &middot; 已接入 {resolvedSnapshots.length} 个面板 &middot; 每 10 秒自动刷新 &middot; (◕ᴗ◕)
         </p>
       </footer>
     </>
+  );
+}
+
+function buildDashboardSnapshot(
+  dashboard: DashboardOption,
+  current: CurrentResponse | null,
+): DashboardSnapshot {
+  if (!current) {
+    return {
+      ...dashboard,
+      onlineDevices: 0,
+      totalDevices: 0,
+      viewerCount: 0,
+      activeLabel: "暂时无法访问",
+      statusText: "连接失败",
+      reachable: false,
+    };
+  }
+
+  const onlineDevices = current.devices.filter((device) => device.is_online === 1);
+  const activeDevice = onlineDevices[0] ?? current.devices[0];
+  const activeLabel = activeDevice
+    ? activeDevice.is_online === 1
+      ? activeDevice.app_name === "idle"
+        ? "暂时离开"
+        : activeDevice.app_name || "在线"
+      : "当前离线"
+    : "暂无设备";
+
+  return {
+    ...dashboard,
+    onlineDevices: onlineDevices.length,
+    totalDevices: current.devices.length,
+    viewerCount: current.viewer_count ?? 0,
+    activeLabel,
+    statusText: onlineDevices.length > 0 ? "在线" : current.devices.length > 0 ? "离线" : "暂无设备",
+    reachable: true,
+  };
+}
+
+function DashboardSwitcher({
+  dashboards,
+  selectedDashboardId,
+  onSelect,
+}: {
+  dashboards: DashboardSnapshot[];
+  selectedDashboardId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <section className="mb-4">
+      <div className="mb-2">
+        <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--color-text-muted)]">
+          Panels
+        </p>
+        <p className="text-xs text-[var(--color-text-muted)] mt-1">
+          点击切换完整时间线，下方卡片可以同时看所有人的在线状态。
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {dashboards.map((dashboard) => (
+          <button
+            key={dashboard.id}
+            type="button"
+            onClick={() => onSelect(dashboard.id)}
+            className={`panel-chip ${dashboard.id === selectedDashboardId ? "panel-chip-active" : ""}`}
+          >
+            <span>{dashboard.name}</span>
+            <span className="text-[10px] opacity-70">{dashboard.onlineDevices}/{dashboard.totalDevices}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DashboardOverviewCard({
+  dashboard,
+  selected,
+  onSelect,
+}: {
+  dashboard: DashboardSnapshot;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`dashboard-overview-card text-left ${selected ? "dashboard-overview-card-active" : ""}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-[var(--color-text)]">{dashboard.name}</p>
+          <p className="text-[11px] text-[var(--color-text-muted)] mt-1 line-clamp-2">
+            {dashboard.description ?? "Live Dashboard 聚合面板"}
+          </p>
+        </div>
+        <span className={`status-pill ${dashboard.onlineDevices > 0 ? "status-pill-online" : "status-pill-offline"}`}>
+          {dashboard.statusText}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-muted)]">Devices</p>
+          <p className="text-lg font-semibold text-[var(--color-text)]">{dashboard.onlineDevices}/{dashboard.totalDevices}</p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-muted)]">Viewers</p>
+          <p className="text-lg font-semibold text-[var(--color-text)]">{dashboard.viewerCount}</p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-muted)]">Status</p>
+          <p className="text-sm font-semibold text-[var(--color-text)] truncate">{dashboard.activeLabel}</p>
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -259,12 +478,12 @@ const platformIcons: Record<string, string> = {
 function DeviceOverview({ devices }: { devices: DeviceState[] }) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] text-[var(--color-text-muted)]">
-      {devices.map((d) => {
-        const isOnline = d.is_online === 1;
-        const icon = platformIcons[d.platform] || "\u{1F4BB}";
+      {devices.map((device) => {
+        const isOnline = device.is_online === 1;
+        const icon = platformIcons[device.platform] || "\u{1F4BB}";
         return (
-          <span key={d.device_id} className={isOnline ? "" : "opacity-40"}>
-            {icon} {d.device_name} · {isOnline ? (d.app_name === "idle" ? "暂时离开" : d.app_name || "idle") : "offline"}
+          <span key={device.device_id} className={isOnline ? "" : "opacity-40"}>
+            {icon} {device.device_name} · {isOnline ? (device.app_name === "idle" ? "暂时离开" : device.app_name || "idle") : "offline"}
           </span>
         );
       })}

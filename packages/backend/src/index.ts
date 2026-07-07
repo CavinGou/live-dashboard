@@ -7,11 +7,27 @@ import { handleTimeline } from "./routes/timeline";
 import { handleHealth } from "./routes/health";
 import { handleHealthData, handleHealthDataQuery } from "./routes/health-data";
 import { handleHealthWebhook } from "./routes/health-webhook";
+import { handleConsentGet, handleConsentPost } from "./routes/consent";
 import { handleConfig } from "./routes/config";
+import { handleProxy } from "./routes/proxy";
 import { injectSiteConfig } from "./services/site-config";
+import { cleanupUnconfiguredDeviceData } from "./db";
+import { getConfiguredDeviceIds } from "./middleware/auth";
 
 // Start scheduled cleanup tasks (import triggers setInterval registration)
 import "./services/cleanup";
+
+const configuredDeviceIds = getConfiguredDeviceIds();
+if (configuredDeviceIds.length > 0) {
+  const cleaned = cleanupUnconfiguredDeviceData(configuredDeviceIds);
+  const totalCleaned =
+    cleaned.deviceStatesDeleted + cleaned.activitiesDeleted + cleaned.healthRecordsDeleted;
+  if (totalCleaned > 0) {
+    console.log(
+      `[cleanup] Removed stale records: device_states=${cleaned.deviceStatesDeleted}, activities=${cleaned.activitiesDeleted}, health_records=${cleaned.healthRecordsDeleted}`
+    );
+  }
+}
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 if (isNaN(PORT) || PORT < 1 || PORT > 65535) {
@@ -83,8 +99,14 @@ const server = Bun.serve({
         response = handleHealthDataQuery(url);
       } else if (pathname === "/api/health-webhook" && req.method === "POST") {
         response = await handleHealthWebhook(req);
+      } else if (pathname === "/api/consent" && req.method === "GET") {
+        response = handleConsentGet(req);
+      } else if (pathname === "/api/consent" && req.method === "POST") {
+        response = await handleConsentPost(req);
       } else if (pathname === "/api/config" && req.method === "GET") {
         response = handleConfig();
+      } else if (pathname === "/api/proxy" && req.method === "GET") {
+        response = await handleProxy(url);
       } else if (!pathname.startsWith("/api/")) {
         // Static file serving disabled if directory doesn't exist
         if (!staticEnabled) {

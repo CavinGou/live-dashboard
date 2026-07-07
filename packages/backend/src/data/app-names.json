@@ -152,7 +152,17 @@
     "Ollama.exe": "Ollama",
     "lms.exe": "LM Studio",
     "Minecraft.exe": "Minecraft",
-    "javaw.exe": "Minecraft"
+    "javaw.exe": "Minecraft",
+    "filezilla.exe": "FileZilla",
+    "WinSCP.exe": "WinSCP",
+    "winscp.exe": "WinSCP",
+    "putty.exe": "PuTTY",
+    "MobaXterm.exe": "MobaXterm",
+    "MobaXterm_Personal.exe": "MobaXterm",
+    "Termius.exe": "Termius",
+    "Xshell.exe": "Xshell",
+    "SecureCRT.exe": "SecureCRT",
+    "BvSsh.exe": "Bitvise SSH Client"
   },
   "android": {
     "com.tencent.mm": "微信",
@@ -263,7 +273,8 @@
     "com.tencent.qqlive": "腾讯视频",
     "com.duowan.kiwi": "虎牙",
     "air.tv.douyu.android": "斗鱼",
-    "and.sirp.masmobile": "Monika"
+    "and.sirp.masmobile": "Monika",
+    "com.server.auditor.ssh.client": "Termius"
   },
   "macos": {
     "Code": "Visual Studio Code",
@@ -376,6 +387,9 @@
     "Audacity": "Audacity",
     "GarageBand": "GarageBand",
     "Logic Pro": "Logic Pro",
-    "Ableton Live": "Ableton Live"
+    "Ableton Live": "Ableton Live",
+    "FileZilla": "FileZilla",
+    "Termius": "Termius",
+    "SecureCRT": "SecureCRT"
   }
 }
