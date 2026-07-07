@@ -114,6 +114,9 @@ db.run(`
 `);
 
 // ── Device consent table (privacy/compliance) ──
+// consent 的概念与 device_consents 表结构参考了 @nmb1337 在 PR #37 中的
+// 设计，特此致谢。此处以 REQUIRE_EXPLICIT_CONSENT 环境变量开关的最小实现
+// 落地，默认关闭以保持对现有 agent 的向后兼容。
 
 db.run(`
   CREATE TABLE IF NOT EXISTS device_consents (

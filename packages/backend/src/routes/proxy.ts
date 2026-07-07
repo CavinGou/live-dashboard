@@ -1,3 +1,7 @@
+// 多面板（聚合好友仪表盘）的需求与思路来自 @nmb1337 的 PR #37，特此致谢。
+// 实现上改为 EXTERNAL_DASHBOARDS 环境变量静态配置 + 只读白名单代理：
+// 不落库、不暴露管理接口、不开新端口（也回应了 issue #39 中对暴露
+// 管理后台的安全顾虑）。
 import { getSiteConfig } from "../services/site-config";
 
 type ProxyEndpoint = "current" | "timeline" | "health-data" | "config";
