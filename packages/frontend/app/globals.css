@@ -578,6 +578,7 @@ body {
 .tl-scroll {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
 }
 .tl-scroll::-webkit-scrollbar { width: 3px; }
@@ -1137,7 +1138,6 @@ body.night-mode .firefly-container { display: block; }
   background: var(--bg-surface);
   border: 1px solid var(--border-soft);
   border-radius: 8px;
-  overflow: hidden;
 }
 .gantt-labels {
   position: relative;
@@ -1183,10 +1183,11 @@ body.night-mode .firefly-container { display: block; }
   overflow-y: hidden;
   min-width: 0;
   position: relative;
+  padding-bottom: 8px;
 }
-.gantt-scroll::-webkit-scrollbar { height: 6px; }
-.gantt-scroll::-webkit-scrollbar-track { background: transparent; }
-.gantt-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.gantt-scroll::-webkit-scrollbar { height: 7px; }
+.gantt-scroll::-webkit-scrollbar-track { background: transparent; border-radius: 0 0 8px 0; }
+.gantt-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; border: 1.5px solid var(--bg-surface); }
 .gantt-scroll { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 
 .gantt-timeline {
