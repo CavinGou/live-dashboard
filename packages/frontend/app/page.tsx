@@ -44,12 +44,12 @@ function fmtDate(s: string) {
 
 function greeting(): string {
   const h = new Date().getHours();
-  if (h >= 5 && h < 9) return "晨光微熹";
-  if (h >= 9 && h < 12) return "日上花梢";
-  if (h >= 12 && h < 14) return "午后小憩";
-  if (h >= 14 && h < 18) return "斜阳渐长";
-  if (h >= 18 && h < 22) return "暮色四合";
-  return "夜阑人静";
+  if (h >= 5 && h < 9) return "早上好";
+  if (h >= 9 && h < 12) return "上午好";
+  if (h >= 12 && h < 14) return "中午好";
+  if (h >= 14 && h < 18) return "下午好";
+  if (h >= 18 && h < 22) return "晚上好";
+  return "夜深了";
 }
 
 function fmtTime(t?: string) {
@@ -383,14 +383,13 @@ export default function Home() {
             </div>
           ) : (
             <div className="presence-content presence-offline reveal reveal-d2">
-              <p className="offline-poem-line">月落乌啼</p>
               <p className="offline-poem-line offline-poem-dim">万籁俱寂，设备已入眠</p>
               {loading && !data && <p className="offline-loading">轻叩数据之门...</p>}
               {error && !loading && <p className="offline-loading">信号微弱，尝试重连中</p>}
             </div>
           )}
 
-          <p className="bottom-quote">&ldquo;每一刻都值得被记录&rdquo;</p>
+
         </div>
 
         {/* ═══ RIGHT: Timeline ═══ */}

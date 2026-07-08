@@ -91,6 +91,7 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
 
   // Preserve scroll center when zooming
   const scrollCenterRef = useRef<number | null>(null);
+  const initialized = useRef(false);
 
   const handleZoomIn = useCallback(() => {
     setZoomIdx((i) => {
@@ -112,7 +113,7 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
     });
   }, []);
 
-  // Auto-scroll to "now" on mount or zoom change
+  // Scroll to "now" on initial load or preserve center on zoom
   useEffect(() => {
     if (!scrollRef.current || segments.length === 0) return;
     const el = scrollRef.current;
@@ -121,8 +122,9 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
       const center = scrollCenterRef.current;
       scrollCenterRef.current = null;
       el.scrollLeft = Math.max(0, Math.min(center - el.clientWidth / 2, totalWidth - el.clientWidth));
-    } else {
-      // Center on "now"
+    } else if (!initialized.current) {
+      // Center on "now" only on first load
+      initialized.current = true;
       const now = new Date();
       const nowMin = now.getHours() * 60 + now.getMinutes();
       const scrollTo = nowMin * pxPerMin - el.clientWidth / 2;
@@ -177,9 +179,6 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
             <div className="gantt-device-header">
               <p className="gantt-device-name">{name}</p>
               <div className="gantt-zoom">
-                <span className="gantt-zoom-label">
-                  {ZOOM_LEVELS[zoomIdx]!}px/min
-                </span>
                 <button
                   type="button"
                   className="gantt-zoom-btn"
