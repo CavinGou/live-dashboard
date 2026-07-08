@@ -55,6 +55,13 @@ export interface TimelineResponse {
   summary: Record<string, Record<string, number>>;
 }
 
+export interface SiteConfig {
+  displayName: string;
+  siteTitle: string;
+  siteDescription: string;
+  siteFavicon: string;
+}
+
 export async function fetchCurrent(signal?: AbortSignal): Promise<CurrentResponse> {
   const res = await fetch(`${API_BASE}/api/current`, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -65,6 +72,12 @@ export async function fetchTimeline(date: string, signal?: AbortSignal): Promise
   const tz = new Date().getTimezoneOffset(); // e.g. -480 for UTC+8
   const url = `${API_BASE}/api/timeline?date=${encodeURIComponent(date)}&tz=${tz}`;
   const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function fetchConfig(signal?: AbortSignal): Promise<SiteConfig> {
+  const res = await fetch(`${API_BASE}/api/config`, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }

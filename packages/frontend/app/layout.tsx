@@ -8,8 +8,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Monika Now",
-  description: "What is Monika doing right now?",
+  title: "__LIVE_DASHBOARD_SITE_TITLE__",
+  description: "__LIVE_DASHBOARD_SITE_DESCRIPTION__",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

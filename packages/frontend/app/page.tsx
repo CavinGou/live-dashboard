@@ -3,6 +3,7 @@
 import type React from "react";
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useDashboard } from "@/hooks/useDashboard";
+import { fetchConfig, type SiteConfig } from "@/lib/api";
 import Timeline from "@/components/Timeline";
 
 /* ═══ Helpers ═══ */
@@ -95,6 +96,19 @@ function UsageChart({ data, maxMins }: { data: { name: string; mins: number; col
 export default function Home() {
   const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard();
   const [activeDevFilter, setActiveDevFilter] = useState<string | null>(null);
+
+  // Default to first online device on initial load
+  useEffect(() => {
+    if (activeDevFilter === null) {
+      const devices = data?.devices ?? [];
+      const online = devices.filter((d) => d.is_online === 1);
+      if (online.length > 0) {
+        setActiveDevFilter(online[0]!.device_id);
+      } else if (devices.length > 0) {
+        setActiveDevFilter(devices[0]!.device_id);
+      }
+    }
+  }, [data?.devices, activeDevFilter]);
   const colorRef = useRef(new Map<string, string>());
 
   const data = current;
@@ -205,8 +219,7 @@ export default function Home() {
     }
     const sorted = Array.from(appMins.entries())
       .map(([name, mins]) => ({ name, mins, color: getColor(name) }))
-      .sort((a, b) => b.mins - a.mins)
-      .slice(0, 6);
+      .sort((a, b) => b.mins - a.mins);
     return sorted;
   }, [filteredGroups]);
 
@@ -220,7 +233,7 @@ export default function Home() {
   }, [filteredGroups]);
 
   const handleDevFilter = useCallback((devId: string) => {
-    setActiveDevFilter((prev) => (prev === devId ? null : devId));
+    setActiveDevFilter(devId);
   }, []);
 
   // Fetch AI daily summary from backend
@@ -234,6 +247,18 @@ export default function Home() {
       .catch(() => {});
     return () => controller.abort();
   }, [selectedDate]);
+
+  // Fetch site config
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchConfig(controller.signal)
+      .then(setSiteConfig)
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+
+  const { displayName, siteTitle } = siteConfig ?? { displayName: "Monika", siteTitle: "Monika Now" };
 
   return (
     <>
@@ -249,7 +274,7 @@ export default function Home() {
         <div className="top-bar-inner">
           {/* Left: title */}
           <div className="top-bar-left">
-            <h1 className="site-title">Monika Now</h1>
+            <h1 className="site-title">{siteTitle}</h1>
             <span className="site-greeting">{greeting()}</span>
           </div>
 
@@ -335,16 +360,7 @@ export default function Home() {
               {/* Separator */}
               <div className="orn-sep reveal reveal-d4"><span className="orn-sep-dot" /></div>
 
-              {/* Usage chart */}
-              <div className="chart-section reveal reveal-d5">
-                <div className="chart-header">
-                  <span className="chart-label">今日使用 Top 6</span>
-                  <span className="chart-total">{fmtDur(totalMins)}</span>
-                </div>
-                <UsageChart data={chartData} maxMins={maxChartMins} />
-              </div>
-
-              {/* AI Daily Summary */}
+              {/* AI Daily Summary — moved above chart */}
               <div className="ai-summary reveal reveal-d5">
                 <p className="ai-summary-label">今日小结</p>
                 <p className="ai-summary-text">
@@ -353,6 +369,15 @@ export default function Home() {
                 <span className="ai-summary-time">
                   {dailySummary?.generated_at ? `${dailySummary.generated_at.slice(11, 16)} · AI 生成` : "等待生成..."}
                 </span>
+              </div>
+
+              {/* Usage chart — moved below summary */}
+              <div className="chart-section reveal reveal-d5">
+                <div className="chart-header">
+                  <span className="chart-label">今日使用排行</span>
+                  <span className="chart-total">{fmtDur(totalMins)}</span>
+                </div>
+                <UsageChart data={chartData} maxMins={maxChartMins} />
               </div>
             </div>
           ) : (
@@ -376,7 +401,6 @@ export default function Home() {
               {activeDevFilter && (
                 <span className="tl-filter-badge">
                   {(data?.devices ?? []).find((d) => d.device_id === activeDevFilter)?.device_name}
-                  <button type="button" className="tl-filter-clear" onClick={() => setActiveDevFilter(null)}>&times;</button>
                 </span>
               )}
             </span>
@@ -410,7 +434,7 @@ export default function Home() {
 
           {/* Footer */}
           <div className="tl-footer" suppressHydrationWarning>
-            <span suppressHydrationWarning>每 10 秒自动刷新</span><span suppressHydrationWarning>Monika Now</span>
+            <span suppressHydrationWarning>每 10 秒自动刷新</span><span suppressHydrationWarning>{displayName} Now</span>
           </div>
         </div>
       </div>

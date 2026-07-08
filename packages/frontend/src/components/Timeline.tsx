@@ -204,12 +204,10 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
                 <div style={{ height: AXIS_H }} />
                 {lanes.map(([app, appSegs]) => {
                   const isCur = app === currentApp;
-                  const total = appSegs.reduce((s, x) => s + x.duration_minutes, 0);
                   return (
                     <div key={app} className="gantt-label" style={{ height: LANE_H }}>
                       {isCur && <span className="gantt-label-now">◆</span>}
                       <span className="gantt-label-name">{app}</span>
-                      <span className="gantt-label-dur">{formatDuration(total)}</span>
                     </div>
                   );
                 })}
@@ -238,7 +236,8 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
                         style={{
                           left: min * pxPerMin,
                           height: major ? "100%" : "35%",
-                          top: major ? 0 : "65%",
+                          bottom: major ? 0 : 0,
+                          top: major ? 0 : "auto",
                           opacity: major ? 0.3 : 0.08,
                         }}
                       />
@@ -249,10 +248,10 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
                   {lanes.map(([app, appSegs], li) => {
                     const color = getColor(app, colorMap);
                     const isCur = app === currentApp;
-                    const top = AXIS_H + li * LANE_H;
+                    const laneBottom = AXIS_H + li * LANE_H;
 
                     return (
-                      <div key={app} className="gantt-lane" style={{ top, height: LANE_H, width: totalWidth }}>
+                      <div key={app} className="gantt-lane" style={{ bottom: laneBottom, height: LANE_H, width: totalWidth }}>
                         {/* Lane bg stripes */}
                         <div
                           className="gantt-lane-bg"
@@ -290,7 +289,7 @@ ${formatDuration(seg.duration_minutes)}`}
                   {/* Now indicator */}
                   <div
                     className="gantt-now"
-                    style={{ left: nowMin * pxPerMin, top: AXIS_H, height: `calc(100% - ${AXIS_H}px)` }}
+                    style={{ left: nowMin * pxPerMin, bottom: AXIS_H, top: 0 }} />
                   />
                 </div>
               </div>
