@@ -122,14 +122,6 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
       el.scrollLeft = Math.max(0, Math.min(scrollTo, totalWidth - el.clientWidth));
     }
   }, [segments, pxPerMin, totalWidth]);
-      // Center on "now" only on first load
-      initialized.current = true;
-      const now = new Date();
-      const nowMin = now.getHours() * 60 + now.getMinutes();
-      const scrollTo = nowMin * pxPerMin - el.clientWidth / 2;
-      el.scrollLeft = Math.max(0, Math.min(scrollTo, totalWidth - el.clientWidth));
-    }
-  }, [segments, pxPerMin, totalWidth]);
 
   if (segments.length === 0) {
     return (
