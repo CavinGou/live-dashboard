@@ -19,6 +19,10 @@ function fmtDur(m: number): string {
 
 function todayStr() {
   const d = new Date();
+  // Before 6AM, show yesterday's data/summary
+  if (d.getHours() < 6) {
+    d.setDate(d.getDate() - 1);
+  }
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
