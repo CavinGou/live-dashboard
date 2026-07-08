@@ -476,13 +476,15 @@ function DashboardOverviewCard({
       className={`dashboard-overview-card text-left ${selected ? "dashboard-overview-card-active" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-[var(--color-text)]">{dashboard.name}</p>
+        {/* min-w-0 让长 description 在自己的格子里收缩换行，
+            而不是撑开容器把右侧状态 pill 挤成竖排 */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-[var(--color-text)] truncate">{dashboard.name}</p>
           <p className="text-[11px] text-[var(--color-text-muted)] mt-1 line-clamp-2">
             {dashboard.description ?? "Live Dashboard 聚合面板"}
           </p>
         </div>
-        <span className={`status-pill ${dashboard.onlineDevices > 0 ? "status-pill-online" : "status-pill-offline"}`}>
+        <span className={`status-pill flex-shrink-0 whitespace-nowrap ${dashboard.onlineDevices > 0 ? "status-pill-online" : "status-pill-offline"}`}>
           {dashboard.statusText}
         </span>
       </div>
