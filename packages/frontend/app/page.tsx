@@ -339,7 +339,7 @@ export default function Home() {
 
               {/* Hero: split into app + what */}
               <div className="hero-block reveal reveal-d3">
-                <p className="hero-app hero-alive">{active.app_name}</p>
+                <p className="hero-app hero-alive">正在用 {active.app_name}</p>
                 {active.display_title && (
                   <p className="hero-title">{getAppDescription(active.app_name, active.display_title)}</p>
                 )}
