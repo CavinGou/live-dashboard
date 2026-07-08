@@ -330,7 +330,17 @@ const descriptions: Record<string, string> = {
   "Control Panel": "正在调系统设置喵~",
 
   // Android specific
-  android: "当前手机在线喵~",
+  桌面: "在主屏幕发呆中喵~",
+  相机: "正在拍照喵~",
+  相册: "正在翻相册喵~",
+  计算器: "正在算数喵~",
+  日历: "正在看日历喵~",
+  时钟: "正在看时间喵~",
+  手机管家: "正在清理手机喵~",
+  天气: "正在看天气喵~",
+  录音机: "正在录音喵~",
+  扫一扫: "正在扫码喵~",
+  便签: "正在记便签喵~",
 
   // Shopping / Services
   支付宝: "正在用支付宝喵~",
@@ -572,18 +582,7 @@ registerTemplate(
 // Gaming platforms — displayTitle IS the game title
 registerTemplate(
   ["Steam"],
-  (t) => {
-    const tl = t.toLowerCase();
-    if (tl === "steam" || tl === "") return "正在浏览 Steam 喵~";
-    if (tl === "好友列表") return "正在与 Steam 好友聊天喵~";
-    // Hash-like strings (screenshot viewer etc) or friend names — hide details
-    if (/^[0-9a-f]{20,}/i.test(t)) return "正在浏览 Steam 喵~";
-    // Check if it looks like a game name (contains letters/CJK, not just a short nickname)
-    // Short titles without spaces/special chars are likely friend nicknames
-    // Game titles typically have spaces, English words, or are longer
-    if (t.length <= 20 && !/\s/.test(t) && !/[a-z]{3,}/i.test(t)) return "正在与 Steam 好友聊天喵~";
-    return `正在Steam玩「${t}」喵~`;
-  }
+  (t) => `正在Steam玩「${t}」喵~`
 );
 registerTemplate(
   ["Epic Games"],
@@ -746,8 +745,6 @@ export function getAppDescription(appName: string, displayTitle?: string, music?
   if (!appName) return DEFAULT_DESCRIPTION;
 
   const appLower = appName.toLowerCase();
-
-  if (appLower === "idle") return "暂时离开了喵~";
   const isMusicAppForeground = _musicAppNames.has(appLower);
 
   // Base description (with or without display title)
