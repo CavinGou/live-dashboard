@@ -289,7 +289,7 @@ ${formatDuration(seg.duration_minutes)}`}
                   {/* Now indicator */}
                   <div
                     className="gantt-now"
-                    style={{ left: nowMin * pxPerMin, bottom: AXIS_H, top: 0 }} />
+                    style={{ left: nowMin * pxPerMin, bottom: AXIS_H, top: 0 }}
                   />
                 </div>
               </div>
