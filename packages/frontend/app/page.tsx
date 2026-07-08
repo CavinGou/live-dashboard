@@ -61,7 +61,9 @@ function HomeInner() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [tab, setTab] = useState<"activity" | "health">("activity");
   const [hasHealthData, setHasHealthData] = useState(false);
-  // 多面板总览大卡片默认收起：竖屏访问为主，别让重复信息把时间线挤到滚动区外
+  // 多面板「总览」是一个独立视图模式：打开时只展示各面板的卡片，
+  // 当前面板的详细内容（状态气泡/设备/时间线）整体让位；点任意卡片
+  // 即切换到该面板并自动回到详细视图。竖屏访问为主，两种模式不叠加。
   const [overviewExpanded, setOverviewExpanded] = useState(false);
 
   useEffect(() => {
@@ -249,19 +251,27 @@ function HomeInner() {
       )}
 
       {!isSinglePanel && overviewExpanded && (
-        <section className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {resolvedSnapshots.map((dashboard) => (
-            <DashboardOverviewCard
-              key={dashboard.id}
-              dashboard={dashboard}
-              selected={dashboard.id === activeDashboard?.id}
-              onSelect={() => setSelectedDashboardId(dashboard.id)}
-            />
-          ))}
+        <section className="mb-6">
+          <p className="text-xs text-[var(--color-text-muted)] mb-3">
+            共接入 {resolvedSnapshots.length} 个面板，点击卡片进入对应面板 ↓
+          </p>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {resolvedSnapshots.map((dashboard) => (
+              <DashboardOverviewCard
+                key={dashboard.id}
+                dashboard={dashboard}
+                selected={dashboard.id === activeDashboard?.id}
+                onSelect={() => {
+                  setSelectedDashboardId(dashboard.id);
+                  setOverviewExpanded(false);
+                }}
+              />
+            ))}
+          </div>
         </section>
       )}
 
-      {current && (
+      {current && !overviewExpanded && (
         <>
           <CurrentStatus device={selectedDevice} displayName={activeDashboard?.name} />
 
@@ -443,7 +453,7 @@ function DashboardSwitcher({
           className="panel-chip text-[10px]"
           aria-expanded={overviewExpanded}
         >
-          总览 {overviewExpanded ? "▴" : "▾"}
+          {overviewExpanded ? "返回 ▴" : "总览 ▾"}
         </button>
       </div>
     </section>
