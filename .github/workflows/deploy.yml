@@ -16,7 +16,10 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          debug: true
           script: |
-            cd /www/wwwroot/live-dashboard
+            echo "=== SSH 连接成功 ==="
+            whoami
+            cd /www/wwwroot/live-dashboard || { echo "目录不存在"; exit 1; }
             git pull
             docker compose up --build -d
