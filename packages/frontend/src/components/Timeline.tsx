@@ -199,7 +199,7 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
 
             <div className="gantt-chart" style={{ height: totalH }}>
               {/* Labels column (fixed left) */}
-              <div className="gantt-labels" style={{ width: LABEL_W }}>
+              <div className="gantt-labels">
                 {/* Spacer for axis row */}
                 <div style={{ height: AXIS_H }} />
                 {lanes.map(([app, appSegs]) => {
