@@ -19,5 +19,4 @@ jobs:
           script: |
             cd /www/wwwroot/live-dashboard
             git pull
-            docker compose build dashboard
-            docker compose up -d
+            docker compose up --build -d
