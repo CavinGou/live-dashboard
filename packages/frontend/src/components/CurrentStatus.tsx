@@ -26,6 +26,12 @@ export default function CurrentStatus({ device, displayName: displayNameProp }: 
       : music.title
     : null;
 
+  // 后端按隐私分级提取好的细节标题（B站视频名 / 正在写的文件 / 网页标题…）。
+  // 音乐播放器场景下 display_title 往往就是歌名，和 ♪ 行重复时不再展示。
+  const rawDetail = active?.display_title?.trim() || null;
+  const detail =
+    rawDetail && music?.title && rawDetail.includes(music.title) ? null : rawDetail;
+
   return (
     <div className="status-bubble mb-6">
       {/* Cat ears */}
@@ -44,6 +50,11 @@ export default function CurrentStatus({ device, displayName: displayNameProp }: 
             <p className="text-lg font-bold font-[var(--font-jp)] text-[var(--color-primary)] leading-relaxed status-text">
               {description}
             </p>
+            {detail && (
+              <p className="text-xs text-[var(--color-text-muted)] mt-1 break-all">
+                「{detail}」
+              </p>
+            )}
             {musicText && (
               <p className="text-xs text-[var(--color-text-muted)] mt-1">
                 ♪ 正在听：{musicText}
