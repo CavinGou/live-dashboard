@@ -4,6 +4,7 @@ import type React from "react";
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useDashboard } from "@/hooks/useDashboard";
 import { fetchConfig, type SiteConfig } from "@/lib/api";
+import { getAppDescription } from "@/lib/app-descriptions";
 import Timeline from "@/components/Timeline";
 
 /* ═══ Helpers ═══ */
@@ -340,7 +341,7 @@ export default function Home() {
               <div className="hero-block reveal reveal-d3">
                 <p className="hero-app hero-alive">{active.app_name}</p>
                 {active.display_title && (
-                  <p className="hero-title">写「{active.display_title}」</p>
+                  <p className="hero-title">{getAppDescription(active.app_name, active.display_title)}</p>
                 )}
               </div>
 
