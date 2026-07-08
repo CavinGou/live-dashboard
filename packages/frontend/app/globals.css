@@ -1183,7 +1183,7 @@ body.night-mode .firefly-container { display: block; }
   overflow-y: hidden;
   min-width: 0;
   position: relative;
-  transform: scaleY(-1);
+  padding-bottom: 4px;
 }
 .gantt-scroll::-webkit-scrollbar { height: 12px; }
 .gantt-scroll::-webkit-scrollbar-track { background: transparent; border-radius: 0 0 8px 0; }
@@ -1193,13 +1193,12 @@ body.night-mode .firefly-container { display: block; }
 .gantt-timeline {
   position: relative;
   overflow: hidden;
-  transform: scaleY(-1);
 }
 
 /* Time axis */
 .gantt-axis {
   position: sticky;
-  bottom: 0;
+  top: 0;
   z-index: 8;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-soft);
@@ -1208,11 +1207,11 @@ body.night-mode .firefly-container { display: block; }
 }
 .gantt-axis-label {
   position: absolute;
-  bottom: 0;
+  top: 0;
   font-size: 9px;
   color: var(--ink-faint);
   line-height: 24px;
-  transform: translateX(-50%) scaleY(-1);
+  transform: translateX(-50%);
   white-space: nowrap;
 }
 .gantt-tick {

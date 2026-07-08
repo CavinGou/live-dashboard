@@ -236,8 +236,8 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
                         style={{
                           left: min * pxPerMin,
                           height: major ? "100%" : "35%",
-                          bottom: major ? 0 : 0,
                           top: major ? 0 : "auto",
+                          bottom: major ? "auto" : 0,
                           opacity: major ? 0.3 : 0.08,
                         }}
                       />
@@ -248,10 +248,10 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
                   {lanes.map(([app, appSegs], li) => {
                     const color = getColor(app, colorMap);
                     const isCur = app === currentApp;
-                    const laneBottom = AXIS_H + li * LANE_H;
+                    const laneTop = AXIS_H + li * LANE_H;
 
                     return (
-                      <div key={app} className="gantt-lane" style={{ bottom: laneBottom, height: LANE_H, width: totalWidth }}>
+                      <div key={app} className="gantt-lane" style={{ top: laneTop, height: LANE_H, width: totalWidth }}>
                         {/* Lane bg stripes */}
                         <div
                           className="gantt-lane-bg"
@@ -289,7 +289,7 @@ ${formatDuration(seg.duration_minutes)}`}
                   {/* Now indicator */}
                   <div
                     className="gantt-now"
-                    style={{ left: nowMin * pxPerMin, bottom: AXIS_H, top: 0 }}
+                    style={{ left: nowMin * pxPerMin, top: AXIS_H, height: `calc(100% - ${AXIS_H}px)` }}
                   />
                 </div>
               </div>
