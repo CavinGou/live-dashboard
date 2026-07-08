@@ -17,7 +17,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /path/to/live-dashboard
+            cd /www/wwwroot/live-dashboard
             git pull
             docker compose build dashboard
             docker compose up -d
