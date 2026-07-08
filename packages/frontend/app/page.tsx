@@ -99,8 +99,8 @@ export default function Home() {
 
   // Default to first online device on initial load
   useEffect(() => {
-    if (activeDevFilter === null) {
-      const devices = data?.devices ?? [];
+    if (activeDevFilter === null && current?.devices) {
+      const devices = current.devices;
       const online = devices.filter((d) => d.is_online === 1);
       if (online.length > 0) {
         setActiveDevFilter(online[0]!.device_id);
@@ -108,7 +108,7 @@ export default function Home() {
         setActiveDevFilter(devices[0]!.device_id);
       }
     }
-  }, [data?.devices, activeDevFilter]);
+  }, [current?.devices, activeDevFilter]);
   const colorRef = useRef(new Map<string, string>());
 
   const data = current;
