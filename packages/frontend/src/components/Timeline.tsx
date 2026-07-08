@@ -89,16 +89,14 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
   const pxPerMin = ZOOM_LEVELS[zoomIdx]!;
   const totalWidth = 1440 * pxPerMin;
 
-  // Preserve scroll center when zooming
-  const scrollCenterRef = useRef<number | null>(null);
+  // Track "now" scroll to trigger on zoom
+  const zoomTriggered = useRef(false);
   const initialized = useRef(false);
 
   const handleZoomIn = useCallback(() => {
     setZoomIdx((i) => {
       const next = Math.min(i + 1, ZOOM_LEVELS.length - 1);
-      if (next !== i && scrollRef.current) {
-        scrollCenterRef.current = scrollRef.current.scrollLeft + scrollRef.current.clientWidth / 2;
-      }
+      if (next !== i) zoomTriggered.current = true;
       return next;
     });
   }, []);
@@ -106,23 +104,24 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
   const handleZoomOut = useCallback(() => {
     setZoomIdx((i) => {
       const next = Math.max(i - 1, 0);
-      if (next !== i && scrollRef.current) {
-        scrollCenterRef.current = scrollRef.current.scrollLeft + scrollRef.current.clientWidth / 2;
-      }
+      if (next !== i) zoomTriggered.current = true;
       return next;
     });
   }, []);
 
-  // Scroll to "now" on initial load or preserve center on zoom
+  // Scroll to "now" on initial load or on zoom
   useEffect(() => {
     if (!scrollRef.current || segments.length === 0) return;
     const el = scrollRef.current;
-    if (scrollCenterRef.current !== null) {
-      // Preserve center position after zoom
-      const center = scrollCenterRef.current;
-      scrollCenterRef.current = null;
-      el.scrollLeft = Math.max(0, Math.min(center - el.clientWidth / 2, totalWidth - el.clientWidth));
-    } else if (!initialized.current) {
+    if (zoomTriggered.current || !initialized.current) {
+      zoomTriggered.current = false;
+      initialized.current = true;
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const scrollTo = nowMin * pxPerMin - el.clientWidth / 2;
+      el.scrollLeft = Math.max(0, Math.min(scrollTo, totalWidth - el.clientWidth));
+    }
+  }, [segments, pxPerMin, totalWidth]);
       // Center on "now" only on first load
       initialized.current = true;
       const now = new Date();

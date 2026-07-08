@@ -190,7 +190,6 @@ body {
 .panel-left {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   padding: 1.5rem 2.5rem 0.5rem 0;
   position: relative;
   min-height: 0;

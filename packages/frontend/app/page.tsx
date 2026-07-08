@@ -259,7 +259,7 @@ export default function Home() {
     return () => controller.abort();
   }, []);
 
-  const { displayName, siteTitle } = siteConfig ?? { displayName: "Monika", siteTitle: "Monika Now" };
+  const { displayName, siteTitle } = siteConfig ?? { displayName: "長青", siteTitle: "事件面板-長青" };
 
   return (
     <>
