@@ -4,6 +4,8 @@
 
 在线演示：https://now.monikadream.homes/
 
+> 🤖 **用 AI 帮你部署？** 把 [AI_README.md](AI_README.md) 喂给你的 AI 助手——那是专门写给 AI 读的部署手册，含环境变量真源表、部署自检清单和全部真实用户踩坑的排查表。
+
 ## 截图
 
 **日间模式（设备在线）**
