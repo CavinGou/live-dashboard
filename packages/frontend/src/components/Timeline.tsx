@@ -139,6 +139,17 @@ function DeviceChart({
 
     const chart = echarts.init(containerRef.current, null, { renderer: "canvas" });
 
+    // Pre-compute bar shapes for all items — avoids coord() issues during zoom
+    const barShapes = barData.map((d: any[]) => {
+      const startMin = d[0];
+      const dur = d[1];
+      const appIdx = d[2];
+      const app = d[3];
+      const isCur = app === currentApp;
+      const color = colorMap.get(app) || PALETTE[0]!;
+      return { startMin, dur, appIdx, app, isCur, color };
+    });
+
     const option: echarts.EChartsOption = {
       grid: {
         left: 80,
@@ -228,59 +239,92 @@ function DeviceChart({
       series: [
         {
           type: "custom",
-          renderItem: (params: any, api: any) => {
-            const startMin = api.value(0);
-            const dur = api.value(1);
-            const appIdx = api.value(2);
-            const app = api.value(3);
-            const isCur = app === currentApp;
-
-            const yCenter = api.coord([0, appIdx])[1];
-            const barHeight = api.size([0, 1])[1] * 0.7;
-            const x1 = api.coord([startMin, appIdx])[0];
-            const x2 = api.coord([startMin + dur, appIdx])[0];
-            if (!Number.isFinite(x1) || !Number.isFinite(x2)) return;
-            const width = Math.max(x2 - x1, 1);
-            const color = colorMap.get(app) || PALETTE[0]!;
-
-            return {
-              type: "rect",
-              shape: { x: x1, y: yCenter - barHeight / 2, width, height: barHeight },
-              style: {
-                fill: color,
-                opacity: isCur ? 0.85 : 0.5,
-                shadowBlur: isCur ? 4 : 0,
-                shadowColor: isCur ? `${color}60` : "transparent",
-              },
-            };
+          renderItem: (_params: any, api: any) => {
+            // Use closure variable barShapes which has pre-computed data
+            // This avoids relying on encode/data mapping
+            return { type: "group", children: [] }; // placeholder, cleared below
           },
-          data: barData,
+          data: [],
           encode: { x: [0, 1], y: 2 },
-        },
-        // "Now" indicator line
-        {
-          type: "line",
-          data: [
-            [nowMin, -0.5],
-            [nowMin, appNames.length - 0.5],
-          ],
-          xAxisIndex: 0,
-          yAxisIndex: 0,
-          symbol: "none",
-          lineStyle: {
-            color: "#E8A0BF",
-            width: 2,
-            opacity: 0.6,
-            shadowBlur: 4,
-            shadowColor: "rgba(232,160,191,0.4)",
-          },
-          z: 10,
-          silent: true,
         },
       ],
     };
 
     chart.setOption(option);
+
+    // Manually render bars using graphic components
+    // This bypasses custom series dataZoom filtering issues
+    chart.setOption({
+      graphic: barShapes.map((bar: any, i: number) => {
+        const x1 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin, bar.appIdx]) as number;
+        const x2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin + bar.dur, bar.appIdx]) as number;
+        if (typeof x1 !== "number" || typeof x2 !== "number") return null;
+        const yCenter = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, bar.appIdx]) as number;
+        const barHeight = (chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 1]) as number) -
+          (chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 0]) as number) * 0.7;
+        const width = Math.max(x2 - x1, 1);
+        if (width < 1 || x1 + width < 0 || x1 > (containerRef.current?.clientWidth || 9999)) return null;
+
+        return {
+          type: "rect",
+          shape: { x: x1, y: yCenter - barHeight / 2, width, height: barHeight * 0.7 },
+          style: {
+            fill: bar.color,
+            opacity: bar.isCur ? 0.85 : 0.5,
+          },
+          keyframe: [],
+          left: x1,
+          top: yCenter - barHeight * 0.35,
+        } as any;
+      }).filter(Boolean),
+    });
+
+    // "Now" line
+    const nowX = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [nowMin, 0]) as number;
+    if (typeof nowX === "number") {
+      chart.setOption({
+        graphic: [
+          {
+            type: "line",
+            shape: { x1: nowX, y1: 30, x2: nowX, y2: chart.getHeight() - 30 },
+            style: {
+              stroke: "#E8A0BF",
+              lineWidth: 2,
+              opacity: 0.6,
+              shadowBlur: 4,
+              shadowColor: "rgba(232,160,191,0.4)",
+            },
+            z: 10,
+          } as any,
+        ],
+      });
+    }
+
+    // Update bars on dataZoom change
+    chart.on("dataZoom", () => {
+      const shapes = barShapes.map((bar: any) => {
+        const x1 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin, bar.appIdx]) as number;
+        const x2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin + bar.dur, bar.appIdx]) as number;
+        if (typeof x1 !== "number" || typeof x2 !== "number") return null;
+        const yCenter = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, bar.appIdx]) as number;
+        const barHeight = ((chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 1]) as number) -
+          (chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 0]) as number)) * 0.7;
+        const width = Math.max(x2 - x1, 1);
+        if (width < 1 || x1 + width < 0 || x1 > (chart.getWidth() || 9999)) return null;
+        return {
+          type: "rect",
+          shape: { x: x1, y: yCenter - barHeight / 2, width, height: barHeight },
+          style: { fill: bar.color, opacity: bar.isCur ? 0.85 : 0.5 },
+        };
+      }).filter(Boolean);
+
+      const nowX2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [nowMin, 0]) as number;
+      const line = typeof nowX2 === "number"
+        ? { type: "line", shape: { x1: nowX2, y1: 30, x2: nowX2, y2: chart.getHeight() - 30 }, style: { stroke: "#E8A0BF", lineWidth: 2, opacity: 0.6 } }
+        : null;
+
+      chart.setOption({ graphic: [...shapes, ...(line ? [line] : [])] });
+    });
 
     const resizeHandler = () => chart.resize();
     window.addEventListener("resize", resizeHandler);
