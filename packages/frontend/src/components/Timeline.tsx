@@ -181,6 +181,7 @@ function DeviceChart({
         {
           type: "slider",
           xAxisIndex: 0,
+          filterMode: "none",
           start: 0,
           end: 100,
           top: 0,
@@ -199,6 +200,7 @@ function DeviceChart({
         {
           type: "inside",
           xAxisIndex: 0,
+          filterMode: "none",
         },
       ],
       tooltip: {
@@ -237,6 +239,7 @@ function DeviceChart({
             const barHeight = api.size([0, 1])[1] * 0.7;
             const x1 = api.coord([startMin, appIdx])[0];
             const x2 = api.coord([startMin + dur, appIdx])[0];
+            if (!Number.isFinite(x1) || !Number.isFinite(x2)) return;
             const width = Math.max(x2 - x1, 1);
             const color = colorMap.get(app) || PALETTE[0]!;
 
