@@ -1,18 +1,11 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect } from "react";
+import * as echarts from "echarts";
 import type { TimelineSegment } from "@/lib/api";
 
 const PALETTE = [
   "#d4788a", "#7aab8a", "#c4a060", "#8a8ec0", "#6ab8b8",
   "#b88870", "#789a78", "#b0906a", "#a080a0", "#7ab0a0",
 ];
-
-function getColor(appName: string, colorMap: Map<string, string>): string {
-  const existing = colorMap.get(appName);
-  if (existing) return existing;
-  const color = PALETTE[colorMap.size % PALETTE.length]!;
-  colorMap.set(appName, color);
-  return color;
-}
 
 function formatDuration(minutes: number): string {
   if (minutes < 1) return "<1m";
@@ -22,11 +15,12 @@ function formatDuration(minutes: number): string {
   return m > 0 ? `${h}h${m}m` : `${h}h`;
 }
 
-function formatTime(isoStr: string): string {
-  return isoStr.slice(11, 16);
+function minsSinceMidnight(isoStr: string): number {
+  const d = new Date(isoStr);
+  return d.getHours() * 60 + d.getMinutes();
 }
 
-/** Merge consecutive segments with the same app_name */
+/** Merge consecutive segments with same app_name */
 function mergeSegments(segs: TimelineSegment[]): TimelineSegment[] {
   if (segs.length === 0) return [];
   const merged: TimelineSegment[] = [];
@@ -44,38 +38,6 @@ function mergeSegments(segs: TimelineSegment[]): TimelineSegment[] {
   return merged;
 }
 
-/** Minutes since 00:00 */
-function minsSinceMidnight(isoStr: string): number {
-  const d = new Date(isoStr);
-  return d.getHours() * 60 + d.getMinutes();
-}
-
-/** Generate tick marks at adaptive intervals based on zoom */
-function genTicks(pxPerMin: number): { min: number; major: boolean }[] {
-  const ticks: { min: number; major: boolean }[] = [];
-  // Decide tick interval: aim for ~1 tick per 60px
-  const rawInterval = Math.max(1, Math.round(60 / pxPerMin));
-  // Snap to nice intervals: 1, 2, 5, 10, 15, 30, 60
-  const nice = [1, 2, 5, 10, 15, 30, 60];
-  let interval = nice.find((n) => n >= rawInterval) ?? 60;
-  if (pxPerMin >= 48) interval = 5;  // very zoomed → 5min
-  else if (pxPerMin >= 24) interval = 10; // zoomed → 10min
-  else if (pxPerMin >= 12) interval = 15; // default → 15min
-  else if (pxPerMin >= 6) interval = 30;  // zoomed out → 30min
-  
-  for (let min = 0; min < 1440; min += interval) {
-    const major = min % 60 === 0;
-    ticks.push({ min, major });
-  }
-  return ticks;
-}
-
-const LANE_H = 52;
-const LABEL_W = 90;
-const AXIS_H = 24;
-const ZOOM_LEVELS = [4, 6, 8, 12, 16, 24, 32, 48, 64];
-const DEFAULT_ZOOM_INDEX = 4; // 16px/min ≈ 1.5h visible
-
 interface Props {
   segments: TimelineSegment[];
   summary: Record<string, Record<string, number>>;
@@ -83,46 +45,6 @@ interface Props {
 }
 
 export default function Timeline({ segments, currentAppByDevice }: Props) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const colorMap = new Map<string, string>();
-  const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_INDEX);
-  const pxPerMin = ZOOM_LEVELS[zoomIdx]!;
-  const totalWidth = 1440 * pxPerMin;
-
-  // Track "now" scroll to trigger on zoom
-  const zoomTriggered = useRef(false);
-  const initialized = useRef(false);
-
-  const handleZoomIn = useCallback(() => {
-    setZoomIdx((i) => {
-      const next = Math.min(i + 1, ZOOM_LEVELS.length - 1);
-      if (next !== i) zoomTriggered.current = true;
-      return next;
-    });
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    setZoomIdx((i) => {
-      const next = Math.max(i - 1, 0);
-      if (next !== i) zoomTriggered.current = true;
-      return next;
-    });
-  }, []);
-
-  // Scroll to "now" on initial load or on zoom
-  useEffect(() => {
-    if (!scrollRef.current || segments.length === 0) return;
-    const el = scrollRef.current;
-    if (zoomTriggered.current || !initialized.current) {
-      zoomTriggered.current = false;
-      initialized.current = true;
-      const now = new Date();
-      const nowMin = now.getHours() * 60 + now.getMinutes();
-      const scrollTo = nowMin * pxPerMin - el.clientWidth / 2;
-      el.scrollLeft = Math.max(0, Math.min(scrollTo, totalWidth - el.clientWidth));
-    }
-  }, [segments, pxPerMin, totalWidth]);
-
   if (segments.length === 0) {
     return (
       <div className="text-center py-16" style={{ color: "var(--ink-muted)" }}>
@@ -148,7 +70,7 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
         const currentApp = currentAppByDevice[deviceId];
         const merged = mergeSegments(segs);
 
-        // Group by app → lanes
+        // Build lanes (apps sorted by duration, current first)
         const laneMap = new Map<string, TimelineSegment[]>();
         for (const s of merged) {
           let list = laneMap.get(s.app_name);
@@ -163,130 +85,216 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
           return db - da;
         });
 
-        const totalH = AXIS_H + lanes.length * LANE_H;
+        const appNames = lanes.map(([app]) => app);
+        const colorMap = new Map<string, string>();
+        let ci = 0;
+        for (const [app] of lanes) {
+          if (!colorMap.has(app)) {
+            colorMap.set(app, PALETTE[ci % PALETTE.length]!);
+            ci++;
+          }
+        }
+
+        // Build ECharts data: [startMin, duration, appIndex, appName, displayTitle, endedAt]
+        const barData: any[][] = [];
+        for (let li = 0; li < lanes.length; li++) {
+          const [app, appSegs] = lanes[li]!;
+          for (const seg of appSegs) {
+            const startMin = minsSinceMidnight(seg.started_at);
+            const durMin = Math.max(seg.duration_minutes, 0.1);
+            barData.push([startMin, durMin, li, app, seg.display_title || "", seg.ended_at || ""]);
+          }
+        }
 
         return (
-          <div key={deviceId} className="gantt-device">
-            <div className="gantt-device-header">
-              <p className="gantt-device-name">{name}</p>
-              <div className="gantt-zoom">
-                <button
-                  type="button"
-                  className="gantt-zoom-btn"
-                  onClick={handleZoomOut}
-                  disabled={zoomIdx === 0}
-                  aria-label="缩小"
-                >−</button>
-                <button
-                  type="button"
-                  className="gantt-zoom-btn"
-                  onClick={handleZoomIn}
-                  disabled={zoomIdx === ZOOM_LEVELS.length - 1}
-                  aria-label="放大"
-                >+</button>
-              </div>
-            </div>
-
-            <div className="gantt-chart" style={{ height: totalH }}>
-              {/* Labels column (fixed left) */}
-              <div className="gantt-labels">
-                {/* Spacer for axis row */}
-                <div style={{ height: AXIS_H }} />
-                {lanes.map(([app, appSegs]) => {
-                  const isCur = app === currentApp;
-                  return (
-                    <div key={app} className="gantt-label" style={{ height: LANE_H }}>
-                      {isCur && <span className="gantt-label-now">◆</span>}
-                      <span className="gantt-label-name">{app}</span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Scrollable timeline area */}
-              <div className="gantt-scroll" ref={scrollRef}>
-                <div className="gantt-timeline" style={{ width: totalWidth, height: totalH }}>
-                  {/* Time axis */}
-                  <div className="gantt-axis" style={{ height: AXIS_H }}>
-                    {/* Hour markers */}
-                    {Array.from({ length: 24 }, (_, h) => (
-                      <span
-                        key={h}
-                        className="gantt-axis-label"
-                        style={{ left: h * 60 * pxPerMin }}
-                      >
-                        {String(h).padStart(2, "0")}:00
-                      </span>
-                    ))}
-                    {/* 15-min tick lines */}
-                    {genTicks(pxPerMin).map(({ min, major }) => (
-                      <div
-                        key={min}
-                        className="gantt-tick"
-                        style={{
-                          left: min * pxPerMin,
-                          height: major ? "100%" : "35%",
-                          top: major ? 0 : "auto",
-                          bottom: major ? "auto" : 0,
-                          opacity: major ? 0.3 : 0.08,
-                        }}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Lanes */}
-                  {lanes.map(([app, appSegs], li) => {
-                    const color = getColor(app, colorMap);
-                    const isCur = app === currentApp;
-                    const laneTop = AXIS_H + li * LANE_H;
-
-                    return (
-                      <div key={app} className="gantt-lane" style={{ top: laneTop, height: LANE_H, width: totalWidth }}>
-                        {/* Lane bg stripes */}
-                        <div
-                          className="gantt-lane-bg"
-                          style={{ backgroundColor: isCur ? `${color}0a` : "transparent" }}
-                        />
-
-                        {/* Activity bars */}
-                        {appSegs.map((seg, i) => {
-                          const startMin = minsSinceMidnight(seg.started_at);
-                          const leftPx = startMin * pxPerMin;
-                          const widthPx = Math.max(seg.duration_minutes * pxPerMin, 2);
-                          if (widthPx <= 0 || leftPx >= totalWidth) return null;
-
-                          return (
-                            <div
-                              key={i}
-                              className="gantt-bar"
-                              style={{
-                                left: leftPx,
-                                width: widthPx,
-                                backgroundColor: color,
-                                opacity: isCur ? 0.85 : 0.5,
-                                boxShadow: isCur ? `0 0 0 1px ${color}` : "none",
-                              }}
-                              title={`${app}${seg.display_title ? ` · ${seg.display_title}` : ""}
-${formatTime(seg.started_at)} → ${seg.ended_at ? formatTime(seg.ended_at) : "现在"}
-${formatDuration(seg.duration_minutes)}`}
-                            />
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-
-                  {/* Now indicator */}
-                  <div
-                    className="gantt-now"
-                    style={{ left: nowMin * pxPerMin, top: AXIS_H, height: `calc(100% - ${AXIS_H}px)` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          <DeviceChart
+            key={deviceId}
+            deviceName={name}
+            appNames={appNames}
+            colorMap={colorMap}
+            barData={barData}
+            nowMin={nowMin}
+            currentApp={currentApp}
+          />
         );
       })}
+    </div>
+  );
+}
+
+function DeviceChart({
+  deviceName, appNames, colorMap, barData, nowMin, currentApp,
+}: {
+  deviceName: string;
+  appNames: string[];
+  colorMap: Map<string, string>;
+  barData: any[][];
+  nowMin: number;
+  currentApp: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const chart = echarts.init(containerRef.current, null, { renderer: "canvas" });
+
+    const option: echarts.EChartsOption = {
+      grid: {
+        left: 80,
+        right: 20,
+        top: 30,
+        bottom: 30,
+      },
+      xAxis: {
+        type: "value",
+        min: 0,
+        max: 1440,
+        axisLabel: {
+          formatter: (v: number) => {
+            const h = Math.floor(v / 60);
+            const m = Math.floor(v % 60);
+            return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+          },
+          fontSize: 10,
+          color: "#8B7E74",
+        },
+        axisLine: { lineStyle: { color: "#E8D5C4" } },
+        splitLine: {
+          show: true,
+          lineStyle: { color: "#E8D5C4", type: "dashed", opacity: 0.3 },
+        },
+      },
+      yAxis: {
+        type: "category",
+        data: appNames,
+        axisLabel: {
+          fontSize: 11,
+          color: "#8B7E74",
+          fontWeight: 500,
+        },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
+      },
+      dataZoom: [
+        {
+          type: "slider",
+          xAxisIndex: 0,
+          start: 0,
+          end: 100,
+          top: 0,
+          height: 20,
+          borderColor: "#E8D5C4",
+          backgroundColor: "transparent",
+          fillerColor: "rgba(232, 160, 191, 0.2)",
+          handleStyle: { color: "#E8A0BF" },
+          textStyle: { fontSize: 9, color: "#8B7E74" },
+          labelFormatter: (v: number) => {
+            const h = Math.floor(v / 60);
+            const m = Math.floor(v % 60);
+            return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+          },
+        },
+        {
+          type: "inside",
+          xAxisIndex: 0,
+        },
+      ],
+      tooltip: {
+        trigger: "item",
+        formatter: (params: any) => {
+          if (!params.data) return "";
+          const [, dur, , app, title, endedAt] = params.data;
+          const startMin = params.data[0];
+          const endMin = startMin + dur;
+          const startStr = `${String(Math.floor(startMin / 60)).padStart(2, "0")}:${String(Math.floor(startMin % 60)).padStart(2, "0")}`;
+          const endStr = endedAt
+            ? `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(Math.floor(endMin % 60)).padStart(2, "0")}`
+            : "现在";
+          return `<div style="font-size:12px">
+            <strong>${app}</strong>${title ? ` · ${title}` : ""}<br/>
+            ${startStr} → ${endStr}<br/>
+            ${formatDuration(dur)}
+          </div>`;
+        },
+        backgroundColor: "rgba(255,253,247,0.95)",
+        borderColor: "#E8D5C4",
+        borderWidth: 1,
+        textStyle: { fontSize: 12, color: "#2D2B2B" },
+      },
+      series: [
+        {
+          type: "custom",
+          renderItem: (params: any, api: any) => {
+            const startMin = api.value(0);
+            const dur = api.value(1);
+            const appIdx = api.value(2);
+            const app = api.value(3);
+            const isCur = app === currentApp;
+
+            const yCenter = api.coord([0, appIdx])[1];
+            const barHeight = api.size([0, 1])[1] * 0.7;
+            const x1 = api.coord([startMin, appIdx])[0];
+            const x2 = api.coord([startMin + dur, appIdx])[0];
+            const width = Math.max(x2 - x1, 1);
+            const color = colorMap.get(app) || PALETTE[0]!;
+
+            return {
+              type: "rect",
+              shape: { x: x1, y: yCenter - barHeight / 2, width, height: barHeight },
+              style: {
+                fill: color,
+                opacity: isCur ? 0.85 : 0.5,
+                shadowBlur: isCur ? 4 : 0,
+                shadowColor: isCur ? `${color}60` : "transparent",
+              },
+            };
+          },
+          data: barData,
+          encode: { x: [0, 1], y: 2 },
+        },
+        // "Now" indicator line
+        {
+          type: "line",
+          data: [
+            [nowMin, -0.5],
+            [nowMin, appNames.length - 0.5],
+          ],
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          symbol: "none",
+          lineStyle: {
+            color: "#E8A0BF",
+            width: 2,
+            opacity: 0.6,
+            shadowBlur: 4,
+            shadowColor: "rgba(232,160,191,0.4)",
+          },
+          z: 10,
+          silent: true,
+        },
+      ],
+    };
+
+    chart.setOption(option);
+
+    const resizeHandler = () => chart.resize();
+    window.addEventListener("resize", resizeHandler);
+
+    return () => {
+      window.removeEventListener("resize", resizeHandler);
+      chart.dispose();
+    };
+  }, [barData, appNames]);
+
+  return (
+    <div className="gantt-device">
+      <p className="gantt-device-name">{deviceName}</p>
+      <div
+        ref={containerRef}
+        style={{ width: "100%", height: Math.max(180, 40 + appNames.length * 40) }}
+      />
     </div>
   );
 }
