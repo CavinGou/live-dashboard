@@ -133,13 +133,118 @@ function DeviceChart({
   currentApp: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<echarts.ECharts | null>(null);
+  const barShapesRef = useRef<any[]>([]);
 
+  // Init chart once
   useEffect(() => {
-    if (!containerRef.current) return;
-
+    if (!containerRef.current || chartRef.current) return;
     const chart = echarts.init(containerRef.current, null, { renderer: "canvas" });
+    chartRef.current = chart;
 
-    // Pre-compute bar shapes for all items — avoids coord() issues during zoom
+    chart.setOption({
+      grid: { left: 80, right: 20, top: 30, bottom: 30 },
+      xAxis: {
+        type: "value", min: 0, max: 1440,
+        axisLabel: {
+          formatter: (v: number) => {
+            const h = Math.floor(v / 60);
+            const m = Math.floor(v % 60);
+            return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+          },
+          fontSize: 10, color: "#8B7E74",
+        },
+        axisLine: { lineStyle: { color: "#E8D5C4" } },
+        splitLine: { show: true, lineStyle: { color: "#E8D5C4", type: "dashed", opacity: 0.3 } },
+      },
+      yAxis: {
+        type: "category", data: appNames,
+        axisLabel: { fontSize: 11, color: "#8B7E74", fontWeight: 500 },
+        axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false },
+      },
+      dataZoom: [
+        { type: "slider", xAxisIndex: 0, filterMode: "none", start: 0, end: 100, top: 0, height: 20,
+          borderColor: "#E8D5C4", backgroundColor: "transparent",
+          fillerColor: "rgba(232, 160, 191, 0.2)", handleStyle: { color: "#E8A0BF" },
+          textStyle: { fontSize: 9, color: "#8B7E74" },
+          labelFormatter: (v: number) => {
+            const h = Math.floor(v / 60);
+            const m = Math.floor(v % 60);
+            return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+          },
+        },
+        { type: "inside", xAxisIndex: 0, filterMode: "none" },
+      ],
+      // Dummy series to enable tooltip
+      tooltip: { trigger: "none" },
+      series: [{ type: "scatter", data: [], silent: true }],
+    });
+
+    // Tooltip via mousemove on graphic elements
+    const ttEl = document.createElement("div");
+    ttEl.className = "gantt-tooltip";
+    Object.assign(ttEl.style, {
+      position: "fixed", display: "none", padding: "6px 10px",
+      fontSize: "12px", background: "rgba(255,253,247,0.95)",
+      border: "1px solid #E8D5C4", borderRadius: "6px",
+      pointerEvents: "none", zIndex: "1000",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    });
+    containerRef.current.appendChild(ttEl);
+
+    chart.on("mousemove", (params: any) => {
+      const pixelX = params.event?.offsetX;
+      const pixelY = params.event?.offsetY;
+      if (pixelX == null || pixelY == null) { ttEl.style.display = "none"; return; }
+      const point = chart.convertFromPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [pixelX, pixelY]);
+      if (!Array.isArray(point)) { ttEl.style.display = "none"; return; }
+      const dataMin = point[0] as number;
+      const dataAppIdx = Math.round(point[1] as number);
+      // Find bar at this position
+      const bars = barShapesRef.current;
+      let hit = null;
+      for (const b of bars) {
+        if (b.appIdx === dataAppIdx && dataMin >= b.startMin && dataMin <= b.startMin + b.dur) {
+          hit = b; break;
+        }
+      }
+      if (hit) {
+        const endStr = (hit.startMin + hit.dur >= 1440) ? "现在" :
+          `${String(Math.floor((hit.startMin + hit.dur) / 60)).padStart(2, "0")}:${String(Math.floor((hit.startMin + hit.dur) % 60)).padStart(2, "0")}`;
+        ttEl.innerHTML = `<strong>${hit.app}</strong><br/>
+          ${String(Math.floor(hit.startMin / 60)).padStart(2, "0")}:${String(Math.floor(hit.startMin % 60)).padStart(2, "0")} → ${endStr}<br/>
+          ${formatDuration(hit.dur)}`;
+        ttEl.style.display = "block";
+        // Position near mouse but avoid overflow
+        const mx = Math.min(pixelX + 15, (containerRef.current?.clientWidth || 600) - 200);
+        const my = Math.min(pixelY + 15, (containerRef.current?.clientHeight || 400) - 60);
+        ttEl.style.left = `${mx}px`;
+        ttEl.style.top = `${my}px`;
+      } else {
+        ttEl.style.display = "none";
+      }
+    });
+    chart.on("mouseout", () => { ttEl.style.display = "none"; });
+
+    const resizeHandler = () => chart.resize();
+    window.addEventListener("resize", resizeHandler);
+
+    return () => {
+      window.removeEventListener("resize", resizeHandler);
+      ttEl.remove();
+      chart.dispose();
+      chartRef.current = null;
+    };
+  }, []);
+
+  // Update data and re-render graphic bars when data changes
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    // Update yAxis categories (app names may change)
+    chart.setOption({ yAxis: { data: appNames } });
+
     const barShapes = barData.map((d: any[]) => {
       const startMin = d[0];
       const dur = d[1];
@@ -149,193 +254,15 @@ function DeviceChart({
       const color = colorMap.get(app) || PALETTE[0]!;
       return { startMin, dur, appIdx, app, isCur, color };
     });
+    barShapesRef.current = barShapes;
 
-    const option: echarts.EChartsOption = {
-      grid: {
-        left: 80,
-        right: 20,
-        top: 30,
-        bottom: 30,
-      },
-      xAxis: {
-        type: "value",
-        min: 0,
-        max: 1440,
-        axisLabel: {
-          formatter: (v: number) => {
-            const h = Math.floor(v / 60);
-            const m = Math.floor(v % 60);
-            return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-          },
-          fontSize: 10,
-          color: "#8B7E74",
-        },
-        axisLine: { lineStyle: { color: "#E8D5C4" } },
-        splitLine: {
-          show: true,
-          lineStyle: { color: "#E8D5C4", type: "dashed", opacity: 0.3 },
-        },
-      },
-      yAxis: {
-        type: "category",
-        data: appNames,
-        axisLabel: {
-          fontSize: 11,
-          color: "#8B7E74",
-          fontWeight: 500,
-        },
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { show: false },
-      },
-      dataZoom: [
-        {
-          type: "slider",
-          xAxisIndex: 0,
-          filterMode: "none",
-          start: 0,
-          end: 100,
-          top: 0,
-          height: 20,
-          borderColor: "#E8D5C4",
-          backgroundColor: "transparent",
-          fillerColor: "rgba(232, 160, 191, 0.2)",
-          handleStyle: { color: "#E8A0BF" },
-          textStyle: { fontSize: 9, color: "#8B7E74" },
-          labelFormatter: (v: number) => {
-            const h = Math.floor(v / 60);
-            const m = Math.floor(v % 60);
-            return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-          },
-        },
-        {
-          type: "inside",
-          xAxisIndex: 0,
-          filterMode: "none",
-        },
-      ],
-      tooltip: {
-        trigger: "item",
-        formatter: (params: any) => {
-          if (!params.data) return "";
-          const [, dur, , app, title, endedAt] = params.data;
-          const startMin = params.data[0];
-          const endMin = startMin + dur;
-          const startStr = `${String(Math.floor(startMin / 60)).padStart(2, "0")}:${String(Math.floor(startMin % 60)).padStart(2, "0")}`;
-          const endStr = endedAt
-            ? `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(Math.floor(endMin % 60)).padStart(2, "0")}`
-            : "现在";
-          return `<div style="font-size:12px">
-            <strong>${app}</strong>${title ? ` · ${title}` : ""}<br/>
-            ${startStr} → ${endStr}<br/>
-            ${formatDuration(dur)}
-          </div>`;
-        },
-        backgroundColor: "rgba(255,253,247,0.95)",
-        borderColor: "#E8D5C4",
-        borderWidth: 1,
-        textStyle: { fontSize: 12, color: "#2D2B2B" },
-      },
-      series: [
-        {
-          type: "custom",
-          renderItem: (_params: any, api: any) => {
-            // Use closure variable barShapes which has pre-computed data
-            // This avoids relying on encode/data mapping
-            return { type: "group", children: [] }; // placeholder, cleared below
-          },
-          data: [],
-          encode: { x: [0, 1], y: 2 },
-        },
-      ],
-    };
+    renderBars(chart, barShapes, nowMin, containerRef.current?.clientWidth || 9999);
 
-    chart.setOption(option);
-
-    // Manually render bars using graphic components
-    chart.setOption({
-      graphic: barShapes.map((bar: any) => {
-        const p1 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin, bar.appIdx]);
-        const p2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin + bar.dur, bar.appIdx]);
-        const p0 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, bar.appIdx]);
-        const pRef = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 0]);
-        const pRef2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 1]);
-        if (!Array.isArray(p1) || !Array.isArray(p2)) return null;
-        const x1 = p1[0] as number;
-        const x2 = p2[0] as number;
-        const yCenter = (Array.isArray(p0) ? p0[1] : 0) as number;
-        const laneH = ((Array.isArray(pRef2) ? pRef2[1] : 0) - (Array.isArray(pRef) ? pRef[1] : 0)) * 0.7;
-        const width = Math.max(x2 - x1, 1);
-        if (width < 1 || x1 + width < 0 || x1 > (containerRef.current?.clientWidth || 9999)) return null;
-
-        return {
-          type: "rect",
-          shape: { x: x1, y: yCenter - laneH / 2, width, height: laneH },
-          style: { fill: bar.color, opacity: bar.isCur ? 0.85 : 0.5 },
-        } as any;
-      }).filter(Boolean),
-    });
-
-    // "Now" line
-    const nowP = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [nowMin, 0]);
-    const nowX = Array.isArray(nowP) ? nowP[0] : null;
-    if (nowX !== null) {
-      chart.setOption({
-        graphic: [
-          {
-            type: "line",
-            shape: { x1: nowX, y1: 30, x2: nowX, y2: chart.getHeight() - 30 },
-            style: {
-              stroke: "#E8A0BF",
-              lineWidth: 2,
-              opacity: 0.6,
-              shadowBlur: 4,
-              shadowColor: "rgba(232,160,191,0.4)",
-            },
-            z: 10,
-          } as any,
-        ],
-      });
-    }
-
-    // Update bars on dataZoom change
+    // Re-render on dataZoom
+    chart.off("dataZoom");
     chart.on("dataZoom", () => {
-      const shapes = barShapes.map((bar: any) => {
-        const p1 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin, bar.appIdx]);
-        const p2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin + bar.dur, bar.appIdx]);
-        const p0 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, bar.appIdx]);
-        const pRef = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 0]);
-        const pRef2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 1]);
-        if (!Array.isArray(p1) || !Array.isArray(p2)) return null;
-        const x1 = p1[0] as number;
-        const x2 = p2[0] as number;
-        const yCenter = (Array.isArray(p0) ? p0[1] : 0) as number;
-        const laneH = ((Array.isArray(pRef2) ? pRef2[1] : 0) - (Array.isArray(pRef) ? pRef[1] : 0)) * 0.7;
-        const width = Math.max(x2 - x1, 1);
-        if (width < 1 || x1 + width < 0 || x1 > (chart.getWidth() || 9999)) return null;
-        return {
-          type: "rect",
-          shape: { x: x1, y: yCenter - laneH / 2, width, height: laneH },
-          style: { fill: bar.color, opacity: bar.isCur ? 0.85 : 0.5 },
-        };
-      }).filter(Boolean);
-
-      const nowP2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [nowMin, 0]);
-      const nowX2 = Array.isArray(nowP2) ? nowP2[0] : null;
-      const line = nowX2 !== null
-        ? { type: "line", shape: { x1: nowX2, y1: 30, x2: nowX2, y2: chart.getHeight() - 30 }, style: { stroke: "#E8A0BF", lineWidth: 2, opacity: 0.6 } }
-        : null;
-
-      chart.setOption({ graphic: [...shapes, ...(line ? [line] : [])] });
+      renderBars(chart, barShapesRef.current, nowMin, chart.getWidth() || 9999);
     });
-
-    const resizeHandler = () => chart.resize();
-    window.addEventListener("resize", resizeHandler);
-
-    return () => {
-      window.removeEventListener("resize", resizeHandler);
-      chart.dispose();
-    };
   }, [barData, appNames]);
 
   return (
@@ -343,8 +270,38 @@ function DeviceChart({
       <p className="gantt-device-name">{deviceName}</p>
       <div
         ref={containerRef}
-        style={{ width: "100%", height: Math.max(180, 40 + appNames.length * 40) }}
+        style={{ width: "100%", height: Math.max(250, 60 + appNames.length * 50) }}
       />
     </div>
   );
+}
+
+function renderBars(chart: echarts.ECharts, barShapes: any[], nowMin: number, maxW: number) {
+  const shapes = barShapes.map((bar: any) => {
+    const p1 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin, bar.appIdx]);
+    const p2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin + bar.dur, bar.appIdx]);
+    const p0 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, bar.appIdx]);
+    const pRef = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 0]);
+    const pRef2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 1]);
+    if (!Array.isArray(p1) || !Array.isArray(p2)) return null;
+    const x1 = p1[0] as number;
+    const x2 = p2[0] as number;
+    const yCenter = (Array.isArray(p0) ? p0[1] : 0) as number;
+    const laneH = ((Array.isArray(pRef2) ? pRef2[1] : 0) - (Array.isArray(pRef) ? pRef[1] : 0)) * 0.7;
+    const width = Math.max(x2 - x1, 1);
+    if (width < 1 || x1 + width < 0 || x1 > maxW) return null;
+    return {
+      type: "rect",
+      shape: { x: x1, y: yCenter - laneH / 2, width, height: laneH },
+      style: { fill: bar.color, opacity: bar.isCur ? 0.85 : 0.5 },
+    };
+  }).filter(Boolean);
+
+  const nowP = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [nowMin, 0]);
+  const nowX = Array.isArray(nowP) ? nowP[0] : null;
+  const line = nowX !== null
+    ? { type: "line", shape: { x1: nowX, y1: 30, x2: nowX, y2: chart.getHeight() - 30 }, style: { stroke: "#E8A0BF", lineWidth: 2, opacity: 0.6 }, z: 10 }
+    : null;
+
+  chart.setOption({ graphic: [...shapes, ...(line ? [line] : [])] });
 }
