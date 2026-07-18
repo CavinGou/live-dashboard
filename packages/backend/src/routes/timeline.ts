@@ -1,9 +1,11 @@
 import {
-  getTimelineByDate,
-  getTimelineByDateAndDevice,
+  getTimelineByRange,
+  getTimelineByRangeAndDevice,
 } from "../db";
 import type { ActivityRecord, TimelineSegment } from "../types";
-import { localTimestamp } from "../services/local-time";
+import { isConfiguredDeviceId } from "../middleware/auth";
+import { getUtcDayRange, parseTimezoneOffset } from "../services/date-range";
+import { resolveAppMeta } from "../services/app-mapper";
 
 export function handleTimeline(url: URL): Response {
   const date = url.searchParams.get("date");
@@ -14,13 +16,32 @@ export function handleTimeline(url: URL): Response {
     );
   }
 
+  // Browser timezone offset in minutes (e.g. -480 for UTC+8).
+  const tzOffsetMinutes = parseTimezoneOffset(url.searchParams.get("tz"));
+  if (tzOffsetMinutes === null) {
+    return Response.json({ error: "invalid tz offset" }, { status: 400 });
+  }
+
+  const dayRange = getUtcDayRange(date, tzOffsetMinutes);
+  if (!dayRange) {
+    return Response.json({ error: "invalid date" }, { status: 400 });
+  }
+
   const deviceId = url.searchParams.get("device_id");
 
-  // Data is stored in local time, query directly by date
-  let activities: ActivityRecord[];
-  activities = deviceId
-    ? (getTimelineByDateAndDevice.all(date, deviceId) as ActivityRecord[])
-    : (getTimelineByDate.all(date) as ActivityRecord[]);
+  if (deviceId && !isConfiguredDeviceId(deviceId)) {
+    return Response.json({ date, segments: [], summary: {} });
+  }
+
+  let activities = deviceId
+    ? (getTimelineByRangeAndDevice.all(
+        deviceId,
+        dayRange.start,
+        dayRange.end,
+      ) as ActivityRecord[])
+    : (getTimelineByRange.all(dayRange.start, dayRange.end) as ActivityRecord[]);
+
+  activities = activities.filter((activity) => isConfiguredDeviceId(activity.device_id));
 
   // Build timeline segments with duration
   // Gap threshold: if time between two consecutive activities exceeds this,
@@ -28,17 +49,23 @@ export function handleTimeline(url: URL): Response {
   // so a 2-minute gap means the device went away.
   const GAP_THRESHOLD_MS = 2 * 60 * 1000;
 
+  // Find the next activity for every device in one reverse pass. The former
+  // nested forward search was O(n²) for interleaved device timelines.
+  const nextStartedAt = new Array<string | null>(activities.length).fill(null);
+  const nextByDevice = new Map<string, string>();
+  for (let i = activities.length - 1; i >= 0; i--) {
+    const activity = activities[i];
+    if (!activity) continue;
+    nextStartedAt[i] = nextByDevice.get(activity.device_id) ?? null;
+    nextByDevice.set(activity.device_id, activity.started_at);
+  }
+
   const segments: TimelineSegment[] = [];
   for (let i = 0; i < activities.length; i++) {
     const a = activities[i];
-    // Find next activity on same device to compute end time
-    let endedAt: string | null = null;
-    for (let j = i + 1; j < activities.length; j++) {
-      if (activities[j].device_id === a.device_id) {
-        endedAt = activities[j].started_at;
-        break;
-      }
-    }
+    if (!a) continue;
+    const { appName, statusText } = resolveAppMeta(a.app_id, a.platform, a.app_name);
+    let endedAt = nextStartedAt[i] ?? null;
 
     const startMs = new Date(a.started_at).getTime();
     if (isNaN(startMs)) continue; // skip malformed timestamps
@@ -51,14 +78,15 @@ export function handleTimeline(url: URL): Response {
     // (approximate last heartbeat window) instead of spanning the full gap.
     if (endedAt && endMs - startMs > GAP_THRESHOLD_MS) {
       endMs = startMs + 60_000;
-      endedAt = localTimestamp(new Date(endMs));
+      endedAt = new Date(endMs).toISOString();
     }
 
     const durationMinutes = Math.max(0, Math.round((endMs - startMs) / 60000));
 
     segments.push({
-      app_name: a.app_name,
+      app_name: appName,
       app_id: a.app_id,
+      status_text: statusText,
       display_title: a.display_title || "",
       started_at: a.started_at,
       ended_at: endedAt,

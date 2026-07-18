@@ -1,7 +1,7 @@
-import { authenticateToken } from "../middleware/auth";
-import { db } from "../db";
+import { authenticateToken, isConfiguredDeviceId } from "../middleware/auth";
+import { canReportHealth, db } from "../db";
+import { getUtcDayRange, parseTimezoneOffset } from "../services/date-range";
 import type { HealthRecord } from "../types";
-import { localTimestamp } from "../services/local-time";
 
 const MAX_RECORDS_PER_REQUEST = 500;
 const VALID_TYPES = new Set([
@@ -14,10 +14,17 @@ const VALID_TYPES = new Set([
   "hydration", "nutrition",
 ]);
 
+// 冲突时更新而不是丢弃：Health Connect 的记录会被数据源事后修正（如手环同步后
+// 补全睡眠时长），DO NOTHING 会让库里永远留着第一次上报的旧值，数值偏小。
+// 修复思路借鉴自社区 fork 作者 @qwe5283（github.com/qwe5283/live-dashboard），
+// 感谢他发现旧值不更新导致的数据偏差问题。
 const insertHealthRecord = db.prepare(`
   INSERT INTO health_records (device_id, type, value, unit, recorded_at, end_time)
   VALUES (?, ?, ?, ?, ?, ?)
-  ON CONFLICT(device_id, type, recorded_at, end_time) DO NOTHING
+  ON CONFLICT(device_id, type, recorded_at, end_time) DO UPDATE SET
+    value = excluded.value,
+    unit = excluded.unit
+  WHERE value IS NOT excluded.value OR unit IS NOT excluded.unit
 `);
 
 const insertMany = db.transaction((records: { deviceId: string; type: string; value: number; unit: string; recordedAt: string; endTime: string }[]) => {
@@ -33,6 +40,13 @@ export async function handleHealthData(req: Request): Promise<Response> {
   const device = authenticateToken(req.headers.get("authorization"));
   if (!device) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!canReportHealth(device.device_id)) {
+    return Response.json(
+      { error: "Consent required: health_reporting" },
+      { status: 403 }
+    );
   }
 
   let body: any;
@@ -66,7 +80,7 @@ export async function handleHealthData(req: Request): Promise<Response> {
     if (typeof record.end_time === "string" && record.end_time) {
       const et = new Date(record.end_time);
       if (!isNaN(et.getTime())) {
-        endTime = localTimestamp(et);
+        endTime = et.toISOString();
       }
     }
 
@@ -75,7 +89,7 @@ export async function handleHealthData(req: Request): Promise<Response> {
       type: record.type,
       value: record.value,
       unit: record.unit.slice(0, 20),
-      recordedAt: localTimestamp(ts),
+      recordedAt: ts.toISOString(),
       endTime,
     });
   }
@@ -102,24 +116,40 @@ export function handleHealthDataQuery(url: URL): Response {
     return Response.json({ error: "date parameter required (YYYY-MM-DD)" }, { status: 400 });
   }
 
+  if (deviceId && !isConfiguredDeviceId(deviceId)) {
+    return Response.json({ date, records: [] });
+  }
+
+  // Browser timezone offset in minutes (e.g. -480 for UTC+8), same as /api/timeline.
+  const tzOffsetMinutes = parseTimezoneOffset(url.searchParams.get("tz"));
+  if (tzOffsetMinutes === null) {
+    return Response.json({ error: "invalid tz offset" }, { status: 400 });
+  }
+
+  const dayRange = getUtcDayRange(date, tzOffsetMinutes);
+  if (!dayRange) {
+    return Response.json({ error: "invalid date" }, { status: 400 });
+  }
+
   try {
-    // Data is stored in local time, query directly by date
     let records: HealthRecord[];
     if (deviceId) {
       records = db.prepare(`
         SELECT device_id, type, value, unit, recorded_at, end_time
         FROM health_records
-        WHERE date(recorded_at) = ? AND device_id = ?
+        WHERE recorded_at >= ? AND recorded_at < ? AND device_id = ?
         ORDER BY recorded_at ASC
-      `).all(date, deviceId) as HealthRecord[];
+      `).all(dayRange.start, dayRange.end, deviceId) as HealthRecord[];
     } else {
       records = db.prepare(`
         SELECT device_id, type, value, unit, recorded_at, end_time
         FROM health_records
-        WHERE date(recorded_at) = ?
+        WHERE recorded_at >= ? AND recorded_at < ?
         ORDER BY recorded_at ASC
-      `).all(date) as HealthRecord[];
+      `).all(dayRange.start, dayRange.end) as HealthRecord[];
     }
+
+    records = records.filter((record) => isConfiguredDeviceId(record.device_id));
 
     return Response.json({ date, records });
   } catch (e: any) {
