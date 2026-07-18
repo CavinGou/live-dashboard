@@ -258,11 +258,20 @@ function DeviceChart({
 
     renderBars(chart, barShapes, nowMin, containerRef.current?.clientWidth || 9999);
 
-    // Re-render on dataZoom
-    chart.off("dataZoom");
-    chart.on("dataZoom", () => {
-      renderBars(chart, barShapesRef.current, nowMin, chart.getWidth() || 9999);
-    });
+    // Re-render bars on zoom/pan via dataZoom (deferred to avoid update conflicts)
+    let zoomTimer: any = null;
+    const onZoom = () => {
+      clearTimeout(zoomTimer);
+      zoomTimer = setTimeout(() => {
+        renderBars(chart, barShapesRef.current, nowMin, chart.getWidth() || 9999);
+      }, 50);
+    };
+    chart.on("dataZoom", onZoom);
+
+    return () => {
+      clearTimeout(zoomTimer);
+      chart.off("dataZoom", onZoom);
+    };
   }, [barData, appNames]);
 
   return (
@@ -303,5 +312,5 @@ function renderBars(chart: echarts.ECharts, barShapes: any[], nowMin: number, ma
     ? { type: "line", shape: { x1: nowX, y1: 30, x2: nowX, y2: chart.getHeight() - 30 }, style: { stroke: "#E8A0BF", lineWidth: 2, opacity: 0.6 }, z: 10 }
     : null;
 
-  chart.setOption({ graphic: [...shapes, ...(line ? [line] : [])] });
+  chart.setOption({ graphic: [...shapes, ...(line ? [line] : [])] }, { replaceMerge: ["graphic"] });
 }
