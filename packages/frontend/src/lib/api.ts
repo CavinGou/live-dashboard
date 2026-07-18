@@ -62,13 +62,18 @@ export interface SiteConfig {
   siteFavicon: string;
 }
 
-export async function fetchCurrent(signal?: AbortSignal): Promise<CurrentResponse> {
+export interface DashboardRequestOptions {
+  baseUrl?: string;
+  dashboardId?: string;
+}
+
+export async function fetchCurrent(signal?: AbortSignal, _options?: DashboardRequestOptions): Promise<CurrentResponse> {
   const res = await fetch(`${API_BASE}/api/current`, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
-export async function fetchTimeline(date: string, signal?: AbortSignal): Promise<TimelineResponse> {
+export async function fetchTimeline(date: string, signal?: AbortSignal, _options?: DashboardRequestOptions): Promise<TimelineResponse> {
   const tz = new Date().getTimezoneOffset(); // e.g. -480 for UTC+8
   const url = `${API_BASE}/api/timeline?date=${encodeURIComponent(date)}&tz=${tz}`;
   const res = await fetch(url, { signal });

@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { getTimelineByDate, upsertDailySummary } from "../db";
+import { getTimelineByRange, upsertDailySummary } from "../db";
 
 /**
  * AI Daily Summary Generator
@@ -93,7 +93,12 @@ export async function generateDailySummary(): Promise<void> {
   }
 
   const date = todayStr();
-  const rows = getTimelineByDate.all(date) as ActivityRow[];
+  const nextDate = (() => {
+    const d = new Date(date + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const rows = getTimelineByRange.all(date, nextDate) as ActivityRow[];
   if (rows.length === 0) {
     console.log("[ai-summary] No activity data for today, skipping");
     return;
