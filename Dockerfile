@@ -2,7 +2,7 @@
 FROM oven/bun:1-alpine AS frontend-build
 WORKDIR /build
 COPY packages/frontend/package.json packages/frontend/bun.lock* ./
-RUN bun install --frozen-lockfile
+RUN bun install
 COPY packages/frontend/ ./
 RUN bun run build
 
@@ -16,7 +16,7 @@ RUN apk add --no-cache tzdata && \
 
 # Copy backend
 COPY packages/backend/package.json packages/backend/bun.lock* ./
-RUN bun install --frozen-lockfile
+RUN bun install
 COPY packages/backend/ ./
 
 # Copy frontend build output into backend's public dir
