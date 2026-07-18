@@ -304,7 +304,7 @@ function DeviceChart({
       <p className="gantt-device-name">{deviceName}</p>
       <div
         ref={containerRef}
-        style={{ width: "100%", height: Math.max(250, 60 + appNames.length * 50) }}
+        style={{ width: "100%", height: Math.max(250, 60 + appNames.length * 50), overflow: "hidden", minWidth: 0 }}
       />
     </div>
   );
