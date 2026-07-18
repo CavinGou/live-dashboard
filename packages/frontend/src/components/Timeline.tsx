@@ -253,35 +253,33 @@ function DeviceChart({
     chart.setOption(option);
 
     // Manually render bars using graphic components
-    // This bypasses custom series dataZoom filtering issues
     chart.setOption({
-      graphic: barShapes.map((bar: any, i: number) => {
-        const x1 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin, bar.appIdx]) as number;
-        const x2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin + bar.dur, bar.appIdx]) as number;
-        if (typeof x1 !== "number" || typeof x2 !== "number") return null;
-        const yCenter = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, bar.appIdx]) as number;
-        const barHeight = (chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 1]) as number) -
-          (chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 0]) as number) * 0.7;
+      graphic: barShapes.map((bar: any) => {
+        const p1 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin, bar.appIdx]);
+        const p2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin + bar.dur, bar.appIdx]);
+        const p0 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, bar.appIdx]);
+        const pRef = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 0]);
+        const pRef2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 1]);
+        if (!Array.isArray(p1) || !Array.isArray(p2)) return null;
+        const x1 = p1[0] as number;
+        const x2 = p2[0] as number;
+        const yCenter = (Array.isArray(p0) ? p0[1] : 0) as number;
+        const laneH = ((Array.isArray(pRef2) ? pRef2[1] : 0) - (Array.isArray(pRef) ? pRef[1] : 0)) * 0.7;
         const width = Math.max(x2 - x1, 1);
         if (width < 1 || x1 + width < 0 || x1 > (containerRef.current?.clientWidth || 9999)) return null;
 
         return {
           type: "rect",
-          shape: { x: x1, y: yCenter - barHeight / 2, width, height: barHeight * 0.7 },
-          style: {
-            fill: bar.color,
-            opacity: bar.isCur ? 0.85 : 0.5,
-          },
-          keyframe: [],
-          left: x1,
-          top: yCenter - barHeight * 0.35,
+          shape: { x: x1, y: yCenter - laneH / 2, width, height: laneH },
+          style: { fill: bar.color, opacity: bar.isCur ? 0.85 : 0.5 },
         } as any;
       }).filter(Boolean),
     });
 
     // "Now" line
-    const nowX = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [nowMin, 0]) as number;
-    if (typeof nowX === "number") {
+    const nowP = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [nowMin, 0]);
+    const nowX = Array.isArray(nowP) ? nowP[0] : null;
+    if (nowX !== null) {
       chart.setOption({
         graphic: [
           {
@@ -303,23 +301,28 @@ function DeviceChart({
     // Update bars on dataZoom change
     chart.on("dataZoom", () => {
       const shapes = barShapes.map((bar: any) => {
-        const x1 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin, bar.appIdx]) as number;
-        const x2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin + bar.dur, bar.appIdx]) as number;
-        if (typeof x1 !== "number" || typeof x2 !== "number") return null;
-        const yCenter = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, bar.appIdx]) as number;
-        const barHeight = ((chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 1]) as number) -
-          (chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 0]) as number)) * 0.7;
+        const p1 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin, bar.appIdx]);
+        const p2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin + bar.dur, bar.appIdx]);
+        const p0 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, bar.appIdx]);
+        const pRef = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 0]);
+        const pRef2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 1]);
+        if (!Array.isArray(p1) || !Array.isArray(p2)) return null;
+        const x1 = p1[0] as number;
+        const x2 = p2[0] as number;
+        const yCenter = (Array.isArray(p0) ? p0[1] : 0) as number;
+        const laneH = ((Array.isArray(pRef2) ? pRef2[1] : 0) - (Array.isArray(pRef) ? pRef[1] : 0)) * 0.7;
         const width = Math.max(x2 - x1, 1);
         if (width < 1 || x1 + width < 0 || x1 > (chart.getWidth() || 9999)) return null;
         return {
           type: "rect",
-          shape: { x: x1, y: yCenter - barHeight / 2, width, height: barHeight },
+          shape: { x: x1, y: yCenter - laneH / 2, width, height: laneH },
           style: { fill: bar.color, opacity: bar.isCur ? 0.85 : 0.5 },
         };
       }).filter(Boolean);
 
-      const nowX2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [nowMin, 0]) as number;
-      const line = typeof nowX2 === "number"
+      const nowP2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [nowMin, 0]);
+      const nowX2 = Array.isArray(nowP2) ? nowP2[0] : null;
+      const line = nowX2 !== null
         ? { type: "line", shape: { x1: nowX2, y1: 30, x2: nowX2, y2: chart.getHeight() - 30 }, style: { stroke: "#E8A0BF", lineWidth: 2, opacity: 0.6 } }
         : null;
 
