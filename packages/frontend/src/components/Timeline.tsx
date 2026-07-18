@@ -135,6 +135,8 @@ function DeviceChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const barShapesRef = useRef<any[]>([]);
+  const nowMinRef = useRef(nowMin);
+  nowMinRef.current = nowMin;
 
   // Init chart once
   useEffect(() => {
@@ -158,7 +160,7 @@ function DeviceChart({
         splitLine: { show: true, lineStyle: { color: "#E8D5C4", type: "dashed", opacity: 0.3 } },
       },
       yAxis: {
-        type: "category", data: appNames,
+        type: "category",
         axisLabel: { fontSize: 11, color: "#8B7E74", fontWeight: 500 },
         axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false },
       },
@@ -175,9 +177,46 @@ function DeviceChart({
         },
         { type: "inside", xAxisIndex: 0, filterMode: "none" },
       ],
-      // Dummy series to enable tooltip
       tooltip: { trigger: "none" },
-      series: [{ type: "scatter", data: [], silent: true }],
+      series: [{
+        type: "custom",
+        renderItem: (_: any, api: any) => {
+          const barData = barShapesRef.current;
+          const children: any[] = [];
+          for (const bar of barData) {
+            const p1 = api.coord([bar.startMin, bar.appIdx]);
+            const p2 = api.coord([bar.startMin + bar.dur, bar.appIdx]);
+            if (!p1 || !p2) continue;
+            const x1 = p1[0], x2 = p2[0];
+            const yCenter = p1[1];
+            const w = Math.max(x2 - x1, 1);
+            if (w < 1 || x1 + w < 0) continue;
+            const laneH = (api.size?.([0, 1])?.[1] ?? 20) * 0.7;
+            children.push({
+              type: "rect",
+              shape: { x: x1, y: yCenter - laneH / 2, width: w, height: laneH },
+              style: { fill: bar.color, opacity: bar.isCur ? 0.85 : 0.5 },
+            });
+          }
+          // Now indicator line
+          const nm = nowMinRef.current;
+          const nowP = api.coord([nm, 0]);
+          if (nowP) {
+            const cy = api.coord([0, -0.5]);
+            const cy2 = api.coord([0, barData.length ? Math.max(...barData.map((b: any) => b.appIdx)) + 0.5 : 0]);
+            if (cy && cy2) {
+              children.push({
+                type: "line",
+                shape: { x1: nowP[0], y1: cy[1], x2: nowP[0], y2: cy2[1] },
+                style: { stroke: "#E8A0BF", lineWidth: 2, opacity: 0.6 },
+                z: 10,
+              });
+            }
+          }
+          return { type: "group", children, clipOverflow: true };
+        },
+        data: [],
+      }],
     });
 
     // Tooltip via mousemove on graphic elements
@@ -237,15 +276,16 @@ function DeviceChart({
     };
   }, []);
 
-  // Update data and re-render graphic bars when data changes
+  // Update bar data when data changes
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
 
-    // Update yAxis categories (app names may change)
+    // Update yAxis categories
     chart.setOption({ yAxis: { data: appNames } });
 
-    const barShapes = barData.map((d: any[]) => {
+    // Update bar shapes ref (used by renderItem closure)
+    barShapesRef.current = barData.map((d: any[]) => {
       const startMin = d[0];
       const dur = d[1];
       const appIdx = d[2];
@@ -254,24 +294,9 @@ function DeviceChart({
       const color = colorMap.get(app) || PALETTE[0]!;
       return { startMin, dur, appIdx, app, isCur, color };
     });
-    barShapesRef.current = barShapes;
 
-    renderBars(chart, barShapes, nowMin, containerRef.current?.clientWidth || 9999);
-
-    // Re-render bars on zoom/pan via dataZoom (deferred to avoid update conflicts)
-    let zoomTimer: any = null;
-    const onZoom = () => {
-      clearTimeout(zoomTimer);
-      zoomTimer = setTimeout(() => {
-        renderBars(chart, barShapesRef.current, nowMin, chart.getWidth() || 9999);
-      }, 50);
-    };
-    chart.on("dataZoom", onZoom);
-
-    return () => {
-      clearTimeout(zoomTimer);
-      chart.off("dataZoom", onZoom);
-    };
+    // Force custom series to re-render by triggering a silent data update
+    chart.setOption({ series: [{ data: [] }] });
   }, [barData, appNames]);
 
   return (
@@ -283,34 +308,4 @@ function DeviceChart({
       />
     </div>
   );
-}
-
-function renderBars(chart: echarts.ECharts, barShapes: any[], nowMin: number, maxW: number) {
-  const shapes = barShapes.map((bar: any) => {
-    const p1 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin, bar.appIdx]);
-    const p2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [bar.startMin + bar.dur, bar.appIdx]);
-    const p0 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, bar.appIdx]);
-    const pRef = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 0]);
-    const pRef2 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [0, 1]);
-    if (!Array.isArray(p1) || !Array.isArray(p2)) return null;
-    const x1 = p1[0] as number;
-    const x2 = p2[0] as number;
-    const yCenter = (Array.isArray(p0) ? p0[1] : 0) as number;
-    const laneH = ((Array.isArray(pRef2) ? pRef2[1] : 0) - (Array.isArray(pRef) ? pRef[1] : 0)) * 0.7;
-    const width = Math.max(x2 - x1, 1);
-    if (width < 1 || x1 + width < 0 || x1 > maxW) return null;
-    return {
-      type: "rect",
-      shape: { x: x1, y: yCenter - laneH / 2, width, height: laneH },
-      style: { fill: bar.color, opacity: bar.isCur ? 0.85 : 0.5 },
-    };
-  }).filter(Boolean);
-
-  const nowP = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [nowMin, 0]);
-  const nowX = Array.isArray(nowP) ? nowP[0] : null;
-  const line = nowX !== null
-    ? { type: "line", shape: { x1: nowX, y1: 30, x2: nowX, y2: chart.getHeight() - 30 }, style: { stroke: "#E8A0BF", lineWidth: 2, opacity: 0.6 }, z: 10 }
-    : null;
-
-  chart.setOption({ graphic: [...shapes, ...(line ? [line] : [])] }, { replaceMerge: ["graphic"] });
 }
