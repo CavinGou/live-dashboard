@@ -215,7 +215,7 @@ function DeviceChart({
           }
           return { type: "group", children, clipOverflow: true };
         },
-        data: [],
+        data: [0],
       }],
     });
 
@@ -295,8 +295,8 @@ function DeviceChart({
       return { startMin, dur, appIdx, app, isCur, color };
     });
 
-    // Force custom series to re-render by triggering a silent data update
-    chart.setOption({ series: [{ data: [] }] });
+    // Force custom series to re-render
+    chart.setOption({ series: [{ data: [Date.now()] }] });
   }, [barData, appNames]);
 
   return (
