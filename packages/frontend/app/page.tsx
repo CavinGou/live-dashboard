@@ -115,6 +115,13 @@ export default function Home() {
   const data = current;
   const tlData = timeline;
 
+  // Debug: log timeline response to console
+  useEffect(() => {
+    if (tlData) {
+      console.log("[timeline]", tlData);
+    }
+  }, [tlData]);
+
   // All online devices
   const onlineDevices = useMemo(() =>
     (data?.devices ?? []).filter((d) => d.is_online === 1),

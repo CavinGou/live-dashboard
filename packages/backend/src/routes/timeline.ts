@@ -112,5 +112,12 @@ export function handleTimeline(url: URL): Response {
     summary[devId] = Object.fromEntries(appMap);
   }
 
-  return Response.json({ date, segments, summary });
+  return Response.json({
+    date,
+    tz: tzOffsetMinutes,
+    range: dayRange,
+    activityCount: activities.length,
+    segments,
+    summary,
+  });
 }
