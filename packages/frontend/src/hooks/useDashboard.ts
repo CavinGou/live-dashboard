@@ -19,7 +19,7 @@ function todayStr(): string {
 export function useDashboard(dashboardId?: string) {
   const [current, setCurrent] = useState<CurrentResponse | null>(null);
   const [timeline, setTimeline] = useState<TimelineResponse | null>(null);
-  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedDate, setSelectedDate] = useState(todayStr());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
@@ -27,10 +27,6 @@ export function useDashboard(dashboardId?: string) {
   const requestOptions = useMemo<DashboardRequestOptions | undefined>(() => {
     return dashboardId ? { dashboardId } : undefined;
   }, [dashboardId]);
-
-  useEffect(() => {
-    if (!selectedDate) setSelectedDate(todayStr());
-  }, [selectedDate]);
 
   useEffect(() => {
     if (!selectedDate) return;
