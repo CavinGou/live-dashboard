@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import * as echarts from "echarts";
 import type { TimelineSegment } from "@/lib/api";
 
@@ -62,7 +62,15 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
     entry.segs.push(seg);
   }
 
-  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  // Defer nowMin to client-side only to avoid hydration mismatch
+  const [nowMin, setNowMin] = useState(0);
+  useEffect(() => {
+    setNowMin(new Date().getHours() * 60 + new Date().getMinutes());
+    const timer = setInterval(() => {
+      setNowMin(new Date().getHours() * 60 + new Date().getMinutes());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <div className="gantt">

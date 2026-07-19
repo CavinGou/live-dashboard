@@ -97,6 +97,8 @@ function UsageChart({ data, maxMins }: { data: { name: string; mins: number; col
 export default function Home() {
   const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard();
   const [activeDevFilter, setActiveDevFilter] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   // Default to first online device on initial load
   useEffect(() => {
@@ -156,7 +158,7 @@ export default function Home() {
 
   useEffect(() => { colorRef.current.clear(); }, [tlData]);
 
-  const isToday = selectedDate === todayStr();
+  const isToday = mounted && selectedDate === todayStr();
 
   // Build timeline groups
   const tlGroups = useMemo(() => {
@@ -276,7 +278,7 @@ export default function Home() {
           {/* Left: title */}
           <div className="top-bar-left">
             <h1 className="site-title">{siteTitle}</h1>
-            <span className="site-greeting">{greeting()}</span>
+            {mounted && <span className="site-greeting">{greeting()}</span>}
           </div>
 
           {/* Center: devices as clickable buttons showing current app */}
@@ -308,7 +310,7 @@ export default function Home() {
 
           {/* Right: time + viewers */}
           <div className="top-bar-right">
-            <span className="top-time">{fmtTime(data?.server_time)}</span>
+            <span className="top-time">{mounted ? fmtTime(data?.server_time) : "--:--"}</span>
             {viewerCount > 0 && <span className="top-viewers">{viewerCount} 人在看</span>}
           </div>
         </div>
