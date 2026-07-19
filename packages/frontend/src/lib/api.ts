@@ -53,10 +53,6 @@ export interface TimelineResponse {
   date: string;
   segments: TimelineSegment[];
   summary: Record<string, Record<string, number>>;
-  // Debug fields
-  tz?: number;
-  range?: { start: string; end: string };
-  activityCount?: number;
 }
 
 export interface SiteConfig {

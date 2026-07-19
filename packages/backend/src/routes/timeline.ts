@@ -114,9 +114,6 @@ export function handleTimeline(url: URL): Response {
 
   return Response.json({
     date,
-    tz: tzOffsetMinutes,
-    range: dayRange,
-    activityCount: activities.length,
     segments,
     summary,
   });

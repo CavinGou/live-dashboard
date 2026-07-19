@@ -12,7 +12,7 @@ import { handleConsentGet, handleConsentPost } from "./routes/consent";
 import { handleConfig } from "./routes/config";
 import { handleProxy } from "./routes/proxy";
 import { injectSiteConfig } from "./services/site-config";
-import { cleanupUnconfiguredDeviceData } from "./db";
+import { cleanupUnconfiguredDeviceData, migrateLegacyTimestamps } from "./db";
 import { getConfiguredDeviceIds } from "./middleware/auth";
 
 // Start scheduled cleanup tasks (import triggers setInterval registration)
@@ -20,6 +20,8 @@ import "./services/cleanup";
 import { generateDailySummary } from "./services/daily-summary-gen";
 
 const configuredDeviceIds = getConfiguredDeviceIds();
+// Fix legacy timestamp format (runs once at startup)
+migrateLegacyTimestamps();
 if (configuredDeviceIds.length > 0) {
   const cleaned = cleanupUnconfiguredDeviceData(configuredDeviceIds);
   const totalCleaned =

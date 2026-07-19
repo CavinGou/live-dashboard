@@ -330,4 +330,39 @@ export function cleanupUnconfiguredDeviceData(allowedDeviceIds: string[]): {
   return tx(allowedDeviceIds);
 }
 
+/**
+ * Migration: convert old local-time timestamps (no Z suffix) to UTC ISO strings.
+ * Old data was stored as local time (UTC+8) without timezone marker.
+ * This makes them comparable with UTC-based query ranges.
+ */
+let _tzMigrationDone = false;
+export function migrateLegacyTimestamps(): void {
+  if (_tzMigrationDone) return;
+  _tzMigrationDone = true;
+
+  const rows = db.prepare(
+    "SELECT id, started_at FROM activities WHERE started_at NOT LIKE '%Z' AND started_at NOT LIKE '%z'"
+  ).all() as { id: number; started_at: string }[];
+
+  if (rows.length === 0) return;
+
+  console.log(`[migration] Converting ${rows.length} legacy timestamps to UTC...`);
+
+  const update = db.prepare("UPDATE activities SET started_at = ? WHERE id = ?");
+  const tx = db.transaction(() => {
+    for (const row of rows) {
+      // Parse as UTC+8 local time, convert to UTC ISO
+      const d = new Date(row.started_at + "+08:00");
+      if (isNaN(d.getTime())) {
+        console.warn(`  [migration] Skipping unparseable: ${row.started_at}`);
+        continue;
+      }
+      update.run(d.toISOString(), row.id);
+    }
+  });
+  tx();
+
+  console.log(`[migration] Done — ${rows.length} timestamps converted`);
+}
+
 export default db;
