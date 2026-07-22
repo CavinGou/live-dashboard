@@ -87,17 +87,6 @@ function buildUserPrompt(rows: ActivityRow[]): string {
     lines.push(`  ${t} [${r.device_name}] ${r.app_name}${label}`);
   }
 
-  // Aggregate by device → app → total mentions + titles
-  const byDevice = new Map<string, Map<string, { count: number; titles: Set<string> }>>();
-  for (const r of rows) {
-    let dev = byDevice.get(r.device_name);
-    if (!dev) { dev = new Map(); byDevice.set(r.device_name, dev); }
-    let app = dev.get(r.app_name);
-    if (!app) { app = { count: 0, titles: new Set() }; dev.set(r.app_name, app); }
-    app.count++;
-    if (r.display_title) app.titles.add(r.display_title);
-  }
-
   lines.push(`\n各应用使用统计:`);
   for (const [dev, apps] of byDevice) {
     lines.push(`[${dev}]`);
