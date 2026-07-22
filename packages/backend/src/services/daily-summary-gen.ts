@@ -76,8 +76,31 @@ function buildUserPrompt(rows: ActivityRow[]): string {
   const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
   const lines: string[] = [`日期: ${todayStr()}`, `当前时间: ${currentTime}`];
   if (timeRange) lines.push(`活动时段: ${timeRange}`);
+
+  // Time-ordered activity timeline (sampled to avoid token overflow)
+  lines.push(`\n活动时间线（按时间顺序）:`);
+  const step = Math.max(1, Math.floor(rows.length / 30));
+  for (let i = 0; i < rows.length; i += step) {
+    const r = rows[i]!;
+    const t = r.started_at.slice(11, 16);
+    const label = r.display_title ? ` - ${r.display_title.slice(0, 40)}` : "";
+    lines.push(`  ${t} [${r.device_name}] ${r.app_name}${label}`);
+  }
+
+  // Aggregate by device → app → total mentions + titles
+  const byDevice = new Map<string, Map<string, { count: number; titles: Set<string> }>>();
+  for (const r of rows) {
+    let dev = byDevice.get(r.device_name);
+    if (!dev) { dev = new Map(); byDevice.set(r.device_name, dev); }
+    let app = dev.get(r.app_name);
+    if (!app) { app = { count: 0, titles: new Set() }; dev.set(r.app_name, app); }
+    app.count++;
+    if (r.display_title) app.titles.add(r.display_title);
+  }
+
+  lines.push(`\n各应用使用统计:`);
   for (const [dev, apps] of byDevice) {
-    lines.push(`\n[${dev}]`);
+    lines.push(`[${dev}]`);
     const sorted = Array.from(apps.entries()).sort((a, b) => b[1].count - a[1].count);
     for (const [app, { count, titles }] of sorted.slice(0, 8)) {
       const t = titles.size ? ` (${Array.from(titles).slice(0, 3).join(", ")})` : "";
