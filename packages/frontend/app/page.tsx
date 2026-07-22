@@ -367,7 +367,7 @@ export default function Home() {
               <div className="ai-summary reveal reveal-d5">
                 <p className="ai-summary-label">今日小结</p>
                 <p className="ai-summary-text">
-                  {dailySummary?.summary || "每晚 21:00 自动生成"}
+                  {dailySummary?.summary || "整点自动生成"}
                 </p>
                 <span className="ai-summary-time">
                   {dailySummary?.generated_at ? `${dailySummary.generated_at.slice(11, 16)} · AI 生成` : "等待生成..."}
