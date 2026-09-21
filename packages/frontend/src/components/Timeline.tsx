@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { TimelineSegment } from "@/lib/api";
 
 const PALETTE = [
@@ -9,9 +9,7 @@ const PALETTE = [
 const LANE_HEIGHT = 52;
 const AXIS_HEIGHT = 24;
 const MERGE_GAP_MS = 2 * 60 * 1000;
-const ZOOM_LEVELS = [4, 6, 8, 12, 16, 24, 32, 48, 64];
-const DEFAULT_ZOOM_INDEX = 4;
-const TICK_INTERVALS = [1, 2, 5, 10, 15, 30, 60];
+const MINUTES_PER_DAY = 24 * 60;
 
 export type ActivityViewMode = "timeline" | "usage";
 
@@ -143,21 +141,6 @@ function getColor(appName: string, colorMap: Map<string, string>): string {
   return color;
 }
 
-function getTickInterval(pxPerMinute: number): number {
-  const rawInterval = Math.max(1, Math.round(60 / pxPerMinute));
-  return TICK_INTERVALS.find((interval) => interval >= rawInterval) ?? 60;
-}
-
-function getLatestMinute(segments: TimelineSegment[]): number {
-  let latest = 0;
-  for (const segment of segments) {
-    const endedAt = segmentEndMs(segment);
-    const d = new Date(endedAt);
-    latest = Math.max(latest, d.getHours() * 60 + d.getMinutes());
-  }
-  return latest;
-}
-
 function currentMinute(): number {
   const now = new Date();
   return now.getHours() * 60 + now.getMinutes();
@@ -166,11 +149,9 @@ function currentMinute(): number {
 function NowIndicator({
   height,
   isToday,
-  pxPerMinute,
 }: {
   height: number;
   isToday: boolean;
-  pxPerMinute: number;
 }) {
   const [nowMinute, setNowMinute] = useState<number | null>(null);
 
@@ -186,7 +167,7 @@ function NowIndicator({
     <div
       className="gantt-now"
       style={{
-        left: nowMinute * pxPerMinute,
+        left: `${(nowMinute / MINUTES_PER_DAY) * 100}%`,
         top: AXIS_HEIGHT,
         height: Math.max(0, height - AXIS_HEIGHT),
       }}
@@ -200,26 +181,14 @@ function DeviceTimeline({
   deviceName,
   isToday,
   mode,
-  onZoomIn,
-  onZoomOut,
-  pxPerMinute,
   segments,
-  zoomIndex,
 }: {
   currentApp: string | undefined;
   deviceName: string;
   isToday: boolean;
   mode: ActivityViewMode;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  pxPerMinute: number;
   segments: TimelineSegment[];
-  zoomIndex: number;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const initializedRef = useRef(false);
-  const lastZoomRef = useRef<number | null>(null);
-  const lastModeRef = useRef<ActivityViewMode | null>(null);
   const [hoveredBar, setHoveredBar] = useState<ActiveBar | null>(null);
   const [selectedBar, setSelectedBar] = useState<ActiveBar | null>(null);
 
@@ -229,14 +198,9 @@ function DeviceTimeline({
     [segments, currentApp],
   );
   const totalHeight = AXIS_HEIGHT + lanes.length * LANE_HEIGHT;
-  const totalWidth = 1440 * pxPerMinute;
-  const tickInterval = getTickInterval(pxPerMinute);
-  const ticks = useMemo(
-    () => Array.from(
-      { length: Math.floor(1440 / tickInterval) + 1 },
-      (_, index) => index * tickInterval,
-    ),
-    [tickInterval],
+  const hourTicks = useMemo(
+    () => Array.from({ length: 25 }, (_, hour) => hour * 60),
+    [],
   );
 
   useEffect(() => {
@@ -244,71 +208,15 @@ function DeviceTimeline({
     setSelectedBar(null);
   }, [segments]);
 
-  useEffect(() => {
-    const scrollElement = scrollRef.current;
-    if (!scrollElement || segments.length === 0) return;
-
-    const isFirstRender = !initializedRef.current;
-    const zoomChanged = lastZoomRef.current !== pxPerMinute;
-    const modeChanged = lastModeRef.current !== mode;
-    if (!isFirstRender && !zoomChanged && !modeChanged) return;
-
-    const latestMinute = getLatestMinute(segments);
-    const nowMinute = currentMinute();
-    const focusMinute = mode === "usage"
-      ? 0
-      : latestMinute > 0 && Math.abs(nowMinute - latestMinute) > 15
-        ? latestMinute
-        : isToday
-          ? nowMinute
-          : latestMinute;
-    const target = focusMinute * pxPerMinute - scrollElement.clientWidth / 2;
-    const nextScrollLeft = Math.max(
-      0,
-      Math.min(target, totalWidth - scrollElement.clientWidth),
-    );
-    if (isFirstRender) {
-      scrollElement.scrollLeft = nextScrollLeft;
-    } else {
-      scrollElement.scrollTo({ left: nextScrollLeft, behavior: "smooth" });
-    }
-    initializedRef.current = true;
-    lastZoomRef.current = pxPerMinute;
-    lastModeRef.current = mode;
-  }, [isToday, mode, pxPerMinute, segments, totalWidth]);
-
   const activeBar = hoveredBar ?? selectedBar;
   const tooltipLeft = activeBar
-    ? Math.min(
-        Math.max(activeBar.left + activeBar.width / 2, 120),
-        Math.max(120, totalWidth - 120),
-      )
+    ? Math.min(Math.max(activeBar.left + activeBar.width / 2, 6), 94)
     : 0;
 
   return (
     <section className="gantt-device">
       <div className="gantt-device-header">
         <p className="gantt-device-name">{deviceName}</p>
-        <div className="gantt-zoom">
-          <button
-            type="button"
-            className="gantt-zoom-btn"
-            onClick={onZoomOut}
-            disabled={zoomIndex === 0}
-            aria-label="缩小时间线"
-          >
-            −
-          </button>
-          <button
-            type="button"
-            className="gantt-zoom-btn"
-            onClick={onZoomIn}
-            disabled={zoomIndex === ZOOM_LEVELS.length - 1}
-            aria-label="放大时间线"
-          >
-            +
-          </button>
-        </div>
       </div>
 
       <div className="gantt-chart" style={{ height: totalHeight }}>
@@ -334,10 +242,10 @@ function DeviceTimeline({
           })}
         </div>
 
-        <div className="gantt-scroll" ref={scrollRef}>
+        <div className="gantt-scroll">
           <div
             className="gantt-timeline"
-            style={{ width: totalWidth, height: totalHeight }}
+            style={{ height: totalHeight }}
           >
             <div className="gantt-axis" style={{ height: AXIS_HEIGHT }}>
               {Array.from({ length: 24 }, (_, hour) => (
@@ -345,7 +253,7 @@ function DeviceTimeline({
                   key={hour}
                   className="gantt-axis-label"
                   style={{
-                    left: hour * 60 * pxPerMinute,
+                    left: `${(hour / 24) * 100}%`,
                     opacity: mode === "timeline" ? 1 : 0,
                   }}
                 >
@@ -360,14 +268,14 @@ function DeviceTimeline({
               </span>
             </div>
 
-            {ticks.map((minute) => {
+            {hourTicks.map((minute) => {
               const isMajor = minute % 60 === 0;
               return (
                 <div
                   key={minute}
                   className="gantt-grid-line"
                   style={{
-                    left: minute * pxPerMinute,
+                    left: `${(minute / MINUTES_PER_DAY) * 100}%`,
                     top: AXIS_HEIGHT,
                     height: Math.max(0, totalHeight - AXIS_HEIGHT),
                     opacity: mode === "timeline"
@@ -389,7 +297,7 @@ function DeviceTimeline({
                   className="gantt-lane"
                   style={{
                     top: laneTop,
-                    width: totalWidth,
+                    width: "100%",
                     height: LANE_HEIGHT,
                   }}
                 >
@@ -397,22 +305,25 @@ function DeviceTimeline({
                     className="gantt-lane-bg"
                     style={{ backgroundColor: isCurrent ? `${color}0a` : undefined }}
                   />
+                  <div
+                    className="gantt-merged-bar"
+                    style={{
+                      width: `${(lane.totalMinutes / MINUTES_PER_DAY) * 100}%`,
+                      backgroundColor: color,
+                      opacity: mode === "usage" ? (isCurrent ? 0.85 : 0.52) : 0,
+                    }}
+                  />
 
                   {lane.activities.map(
                     ({ aggregateOffset, segment }, segmentIndex) => {
                       const startMinute = minsSinceMidnight(segment.started_at);
-                      const activityWidth = Math.max(
-                        segment.duration_minutes * pxPerMinute,
-                        2,
-                      );
-                      const width = mode === "usage"
-                        ? activityWidth + 1
-                        : activityWidth;
-                      const left = (
-                        mode === "timeline"
-                          ? startMinute * pxPerMinute
-                          : aggregateOffset * pxPerMinute
-                      );
+                      const width =
+                        (Math.max(segment.duration_minutes, 1) / MINUTES_PER_DAY) *
+                        100;
+                      const positionMinute = mode === "timeline"
+                        ? startMinute
+                        : aggregateOffset;
+                      const left = (positionMinute / MINUTES_PER_DAY) * 100;
                       const bar: ActiveBar = {
                         appName: lane.appName,
                         color,
@@ -432,13 +343,18 @@ function DeviceTimeline({
                           type="button"
                           className={`gantt-bar${isSelected ? " gantt-bar-selected" : ""}`}
                           style={{
-                            width,
-                            transform: `translateX(${left}px)`,
+                            left: `${left}%`,
+                            width: `${width}%`,
                             backgroundColor: color,
-                            opacity: isCurrent ? 0.85 : 0.52,
+                            opacity: mode === "usage"
+                              ? 0
+                              : isCurrent ? 0.85 : 0.52,
                             boxShadow: isCurrent ? `0 0 0 1px ${color}` : undefined,
+                            pointerEvents: mode === "usage" ? "none" : "auto",
                           }}
                           aria-label={label}
+                          aria-hidden={mode === "usage"}
+                          tabIndex={mode === "usage" ? -1 : 0}
                           onMouseEnter={() => setHoveredBar(bar)}
                           onMouseLeave={() => setHoveredBar(null)}
                           onFocus={() => setHoveredBar(bar)}
@@ -462,14 +378,13 @@ function DeviceTimeline({
             <NowIndicator
               height={totalHeight}
               isToday={isToday && mode === "timeline"}
-              pxPerMinute={pxPerMinute}
             />
 
             {activeBar && (
               <div
                 className="gantt-tooltip-card"
                 style={{
-                  left: tooltipLeft,
+                  left: `${tooltipLeft}%`,
                   top: AXIS_HEIGHT + activeBar.laneIndex * LANE_HEIGHT + 7,
                 }}
                 role="tooltip"
@@ -503,9 +418,6 @@ export default function Timeline({
   isToday,
   mode,
 }: Props) {
-  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
-  const pxPerMinute = ZOOM_LEVELS[zoomIndex]!;
-
   const byDevice = useMemo(() => {
     const devices = new Map<string, { name: string; segments: TimelineSegment[] }>();
     for (const segment of segments) {
@@ -531,16 +443,6 @@ export default function Timeline({
     );
   }
 
-  const handleZoomIn = () => {
-    setZoomIndex((current) =>
-      Math.min(current + 1, ZOOM_LEVELS.length - 1),
-    );
-  };
-
-  const handleZoomOut = () => {
-    setZoomIndex((current) => Math.max(current - 1, 0));
-  };
-
   return (
     <div className="gantt">
       {Array.from(byDevice.entries()).map(([deviceId, device]) => (
@@ -550,11 +452,7 @@ export default function Timeline({
           deviceName={device.name}
           isToday={isToday}
           mode={mode}
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          pxPerMinute={pxPerMinute}
           segments={device.segments}
-          zoomIndex={zoomIndex}
         />
       ))}
     </div>
