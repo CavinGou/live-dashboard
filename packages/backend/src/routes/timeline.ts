@@ -81,7 +81,8 @@ export function handleTimeline(url: URL): Response {
       endedAt = new Date(endMs).toISOString();
     }
 
-    const durationMinutes = Math.max(0, Math.round((endMs - startMs) / 60000));
+    const durationSeconds = Math.max(0, Math.round((endMs - startMs) / 1000));
+    const durationMinutes = durationSeconds / 60;
 
     segments.push({
       app_name: appName,
@@ -91,6 +92,7 @@ export function handleTimeline(url: URL): Response {
       started_at: a.started_at,
       ended_at: endedAt,
       duration_minutes: durationMinutes,
+      duration_seconds: durationSeconds,
       device_id: a.device_id,
       device_name: a.device_name,
     });

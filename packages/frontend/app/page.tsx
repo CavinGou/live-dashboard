@@ -8,10 +8,12 @@ import Timeline, { type ActivityViewMode } from "@/components/Timeline";
 
 /* ═══ Helpers ═══ */
 function fmtDur(m: number): string {
-  if (!Number.isFinite(m) || m < 1) return "<1m";
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  const r = m % 60;
+  if (!Number.isFinite(m)) return "<1m";
+  const minutes = Math.max(0, Math.round(m));
+  if (minutes < 1) return "<1m";
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const r = minutes % 60;
   return r ? `${h}h${r}m` : `${h}h`;
 }
 

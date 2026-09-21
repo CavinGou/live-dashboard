@@ -39,10 +39,11 @@ interface Props {
 }
 
 function formatDuration(minutes: number): string {
-  if (minutes < 1) return "<1分钟";
-  if (minutes < 60) return `${minutes}分钟`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
+  const roundedMinutes = Math.max(0, Math.round(minutes));
+  if (roundedMinutes < 1) return "<1分钟";
+  if (roundedMinutes < 60) return `${roundedMinutes}分钟`;
+  const hours = Math.floor(roundedMinutes / 60);
+  const remainingMinutes = roundedMinutes % 60;
   return remainingMinutes > 0
     ? `${hours}小时${remainingMinutes}分钟`
     : `${hours}小时`;
@@ -60,11 +61,17 @@ function minsSinceMidnight(iso: string): number {
   return d.getHours() * 60 + d.getMinutes();
 }
 
+function segmentDurationMinutes(segment: TimelineSegment): number {
+  return Number.isFinite(segment.duration_seconds)
+    ? segment.duration_seconds! / 60
+    : segment.duration_minutes;
+}
+
 function segmentEndMs(segment: TimelineSegment): number {
   const startedAt = new Date(segment.started_at).getTime();
   const endedAt = segment.ended_at
     ? new Date(segment.ended_at).getTime()
-    : startedAt + segment.duration_minutes * 60_000;
+    : startedAt + segmentDurationMinutes(segment) * 60_000;
   return Number.isFinite(endedAt) ? endedAt : startedAt;
 }
 
@@ -82,11 +89,15 @@ function mergeSegments(segments: TimelineSegment[]): TimelineSegment[] {
       Number.isFinite(gapMs) && gapMs >= 0 && gapMs <= MERGE_GAP_MS;
 
     if (next.app_name === current.app_name && isContinuous) {
+      const durationSeconds =
+        segmentDurationMinutes(current) * 60 +
+        segmentDurationMinutes(next) * 60;
       current = {
         ...current,
         ended_at: next.ended_at,
         display_title: next.display_title || current.display_title,
-        duration_minutes: current.duration_minutes + next.duration_minutes,
+        duration_minutes: durationSeconds / 60,
+        duration_seconds: durationSeconds,
       };
       continue;
     }
@@ -119,8 +130,9 @@ function buildLanes(
       let totalMinutes = 0;
       const activities = appSegments.map((segment) => {
         const activity = { aggregateOffset, segment };
-        aggregateOffset += segment.duration_minutes;
-        totalMinutes += segment.duration_minutes;
+        const durationMinutes = segmentDurationMinutes(segment);
+        aggregateOffset += durationMinutes;
+        totalMinutes += durationMinutes;
         return activity;
       });
       return { appName, activities, totalMinutes };
@@ -196,6 +208,10 @@ function DeviceTimeline({
   const lanes = useMemo(
     () => buildLanes(segments, currentApp),
     [segments, currentApp],
+  );
+  const maxLaneMinutes = Math.max(
+    ...lanes.map((lane) => lane.totalMinutes),
+    1,
   );
   const totalHeight = AXIS_HEIGHT + lanes.length * LANE_HEIGHT;
   const hourTicks = useMemo(
@@ -306,24 +322,24 @@ function DeviceTimeline({
                     style={{ backgroundColor: isCurrent ? `${color}0a` : undefined }}
                   />
                   <div
-                    className="gantt-merged-bar"
-                    style={{
-                      width: `${(lane.totalMinutes / MINUTES_PER_DAY) * 100}%`,
-                      backgroundColor: color,
-                      opacity: mode === "usage" ? (isCurrent ? 0.85 : 0.52) : 0,
-                    }}
-                  />
-
-                  {lane.activities.map(
-                    ({ aggregateOffset, segment }, segmentIndex) => {
+                    className="gantt-bar-layer"
+                    style={{ opacity: isCurrent ? 0.85 : 0.52 }}
+                  >
+                    {lane.activities.map(
+                      ({ aggregateOffset, segment }, segmentIndex) => {
                       const startMinute = minsSinceMidnight(segment.started_at);
-                      const width =
-                        (Math.max(segment.duration_minutes, 1) / MINUTES_PER_DAY) *
-                        100;
+                      const durationMinutes = segmentDurationMinutes(segment);
+                      const scaleMinutes = mode === "usage"
+                        ? maxLaneMinutes
+                        : MINUTES_PER_DAY;
+                      const rawWidth = (durationMinutes / scaleMinutes) * 100;
+                      const width = mode === "usage"
+                        ? rawWidth + 0.08
+                        : rawWidth;
                       const positionMinute = mode === "timeline"
                         ? startMinute
                         : aggregateOffset;
-                      const left = (positionMinute / MINUTES_PER_DAY) * 100;
+                      const left = (positionMinute / scaleMinutes) * 100;
                       const bar: ActiveBar = {
                         appName: lane.appName,
                         color,
@@ -335,7 +351,7 @@ function DeviceTimeline({
                       const isSelected =
                         selectedBar?.segment.started_at === segment.started_at &&
                         selectedBar.appName === lane.appName;
-                      const label = `${lane.appName}，${formatTime(segment.started_at)}到${segment.ended_at ? formatTime(segment.ended_at) : "现在"}，${formatDuration(segment.duration_minutes)}`;
+                      const label = `${lane.appName}，${formatTime(segment.started_at)}到${segment.ended_at ? formatTime(segment.ended_at) : "现在"}，${formatDuration(durationMinutes)}`;
 
                       return (
                         <button
@@ -346,15 +362,9 @@ function DeviceTimeline({
                             left: `${left}%`,
                             width: `${width}%`,
                             backgroundColor: color,
-                            opacity: mode === "usage"
-                              ? 0
-                              : isCurrent ? 0.85 : 0.52,
                             boxShadow: isCurrent ? `0 0 0 1px ${color}` : undefined,
-                            pointerEvents: mode === "usage" ? "none" : "auto",
                           }}
                           aria-label={label}
-                          aria-hidden={mode === "usage"}
-                          tabIndex={mode === "usage" ? -1 : 0}
                           onMouseEnter={() => setHoveredBar(bar)}
                           onMouseLeave={() => setHoveredBar(null)}
                           onFocus={() => setHoveredBar(bar)}
@@ -369,8 +379,9 @@ function DeviceTimeline({
                           }}
                         />
                       );
-                    },
-                  )}
+                      },
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -401,7 +412,7 @@ function DeviceTimeline({
                     ? formatTime(activeBar.segment.ended_at)
                     : "现在"}
                   {" · "}
-                  {formatDuration(activeBar.segment.duration_minutes)}
+                  {formatDuration(segmentDurationMinutes(activeBar.segment))}
                 </span>
               </div>
             )}
