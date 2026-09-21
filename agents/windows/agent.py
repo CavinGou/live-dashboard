@@ -3,9 +3,12 @@ Live Dashboard — Windows Agent
 Monitors the foreground window and reports app usage to the dashboard backend.
 """
 
+import asyncio
+import base64
 import ctypes
 import ctypes.wintypes
 from datetime import datetime, timezone
+from io import BytesIO
 import ipaddress
 import json
 import logging
@@ -235,6 +238,13 @@ def _parse_foobar_title(title: str) -> tuple[str, str] | None:
 _SMTC_CACHE: dict = {}
 _SMTC_CACHE_LOCK = threading.Lock()
 _SMTC_CACHE_TTL = 30
+_SMTC_MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024
+_SMTC_COVER_SIZE = (192, 192)
+MUSIC_COVER_WAIT_SECONDS = 15.0
+MUSIC_SAMPLE_INTERVAL_SECONDS = 0.5
+_MUSIC_SNAPSHOT_CONDITION = threading.Condition()
+_MUSIC_SNAPSHOT: dict | None = None
+_MUSIC_SNAPSHOT_VERSION = 0
 
 _SMTC_PS_SCRIPT = """
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
@@ -270,6 +280,77 @@ def _is_junk_music_title(title: str) -> bool:
     return False
 
 
+def _make_cover_data_uri(raw_image: bytes) -> str | None:
+    """Downscale album art and return a compact JPEG data URI."""
+    try:
+        from PIL import Image, ImageOps
+
+        with Image.open(BytesIO(raw_image)) as image:
+            normalized = ImageOps.exif_transpose(image).convert("RGB")
+            normalized.thumbnail(_SMTC_COVER_SIZE, Image.Resampling.LANCZOS)
+            output = BytesIO()
+            normalized.save(output, format="JPEG", quality=82, optimize=True)
+        encoded = base64.b64encode(output.getvalue()).decode("ascii")
+        return f"data:image/jpeg;base64,{encoded}"
+    except Exception as e:
+        log.debug("SMTC cover processing failed: %s", e)
+        return None
+
+
+async def _query_smtc_winrt_async() -> dict | None:
+    """Read current media metadata and album art through WinRT."""
+    from winrt.windows.media.control import (
+        GlobalSystemMediaTransportControlsSessionManager as MediaManager,
+    )
+    from winrt.windows.storage.streams import DataReader
+
+    manager = await MediaManager.request_async()
+    session = manager.get_current_session()
+    if session is None:
+        return None
+
+    media_props = await session.try_get_media_properties_async()
+    if media_props is None:
+        return None
+
+    info: dict[str, str] = {
+        "title": (media_props.title or "").strip(),
+        "artist": (media_props.artist or "").strip(),
+        "appId": (session.source_app_user_model_id or "").strip(),
+    }
+
+    thumbnail = media_props.thumbnail
+    if thumbnail is None:
+        return info
+
+    stream = None
+    reader = None
+    try:
+        stream = await thumbnail.open_read_async()
+        size = int(stream.size)
+        if size <= 0 or size > _SMTC_MAX_THUMBNAIL_BYTES:
+            return info
+
+        reader = DataReader(stream.get_input_stream_at(0))
+        loaded = int(await reader.load_async(size))
+        if loaded <= 0:
+            return info
+
+        raw_image = bytes(reader.detach_buffer())
+        cover = _make_cover_data_uri(raw_image)
+        if cover:
+            info["cover"] = cover
+    except Exception as e:
+        log.debug("SMTC thumbnail read failed: %s", e)
+    finally:
+        if reader is not None:
+            reader.close()
+        if stream is not None:
+            stream.close()
+
+    return info
+
+
 def _query_smtc_powershell() -> dict | None:
     """Query SMTC via PowerShell to get current media info."""
     try:
@@ -293,6 +374,15 @@ def _query_smtc_powershell() -> dict | None:
         return None
 
 
+def _query_smtc() -> dict | None:
+    """Read SMTC metadata via WinRT, falling back to PowerShell."""
+    try:
+        return asyncio.run(_query_smtc_winrt_async())
+    except Exception as e:
+        log.debug("SMTC WinRT query failed: %s", e)
+        return _query_smtc_powershell()
+
+
 def _get_smtc_info() -> dict | None:
     """Get cached SMTC media info, refreshing if TTL expired."""
     global _SMTC_CACHE
@@ -301,10 +391,27 @@ def _get_smtc_info() -> dict | None:
         if _SMTC_CACHE and (now - _SMTC_CACHE.get("_ts", 0)) < _SMTC_CACHE_TTL:
             return _SMTC_CACHE.get("data")
 
-    info = _query_smtc_powershell()
+    info = _query_smtc()
     with _SMTC_CACHE_LOCK:
         _SMTC_CACHE = {"data": info, "_ts": now}
     return info
+
+
+def _normalize_music_match(value: str) -> str:
+    return "".join(value.casefold().split())
+
+
+def _smtc_matches(smtc: dict, title: str, artist: str) -> bool:
+    smtc_title = _normalize_music_match(str(smtc.get("title") or ""))
+    title = _normalize_music_match(title)
+    if not smtc_title or not title or smtc_title != title:
+        return False
+
+    smtc_artist = _normalize_music_match(str(smtc.get("artist") or ""))
+    artist = _normalize_music_match(artist)
+    if not smtc_artist or not artist:
+        return True
+    return smtc_artist in artist or artist in smtc_artist
 
 
 def get_music_info() -> dict | None:
@@ -360,6 +467,7 @@ def get_music_info() -> dict | None:
                     "app": smtc.get("appId", "music"),
                     "title": title[:256],
                     "artist": artist[:256] if artist else "",
+                    **({"cover": smtc["cover"]} if smtc.get("cover") else {}),
                 }
         return None
 
@@ -378,6 +486,7 @@ def get_music_info() -> dict | None:
                     "app": app_name,
                     "title": title[:256],
                     "artist": artist[:256] if artist else "",
+                    **({"cover": smtc["cover"]} if smtc.get("cover") else {}),
                 }
         return None
 
@@ -387,7 +496,43 @@ def get_music_info() -> dict | None:
         info["title"] = title[:256]
     if artist:
         info["artist"] = artist[:256]
+    smtc = _get_smtc_info()
+    if smtc and smtc.get("cover") and _smtc_matches(smtc, title, artist):
+        info["cover"] = smtc["cover"]
     return info
+
+
+def _get_music_snapshot() -> tuple[dict | None, int]:
+    with _MUSIC_SNAPSHOT_CONDITION:
+        snapshot = dict(_MUSIC_SNAPSHOT) if _MUSIC_SNAPSHOT else None
+        return snapshot, _MUSIC_SNAPSHOT_VERSION
+
+
+def _set_music_snapshot(music: dict | None) -> None:
+    global _MUSIC_SNAPSHOT, _MUSIC_SNAPSHOT_VERSION
+    snapshot = dict(music) if music else None
+    with _MUSIC_SNAPSHOT_CONDITION:
+        changed = snapshot != _MUSIC_SNAPSHOT
+        _MUSIC_SNAPSHOT = snapshot
+        if changed:
+            _MUSIC_SNAPSHOT_VERSION += 1
+            _MUSIC_SNAPSHOT_CONDITION.notify_all()
+
+
+def _wait_for_music_snapshot(version: int, timeout: float) -> None:
+    with _MUSIC_SNAPSHOT_CONDITION:
+        if version == _MUSIC_SNAPSHOT_VERSION:
+            _MUSIC_SNAPSHOT_CONDITION.wait(timeout)
+
+
+def _music_sampler_loop() -> None:
+    """Keep the latest cover cached so reporting never parses it inline."""
+    while not shutdown_event.is_set():
+        try:
+            _set_music_snapshot(get_music_info())
+        except Exception as e:
+            log.debug("Music sampler error: %s", e)
+        shutdown_event.wait(MUSIC_SAMPLE_INTERVAL_SECONDS)
 
 
 def get_battery_extra() -> dict:
@@ -930,8 +1075,21 @@ def _monitor_loop(cfg: dict, reporter: Reporter, tray: TrayAgent | None) -> None
 
     prev_app: str | None = None
     prev_title: str | None = None
+    last_music_key: tuple[str, str, str] | None = None
+    last_reported_music: dict[str, str] | None = None
+    last_music_had_cover = False
+    pending_music_key: tuple[str, str, str] | None = None
+    pending_music_since = 0.0
     last_report_time: float = 0
     was_idle = False
+
+    _set_music_snapshot(get_music_info())
+    music_sampler = threading.Thread(
+        target=_music_sampler_loop,
+        name="music-sampler",
+        daemon=True,
+    )
+    music_sampler.start()
 
     log.info(
         "Monitoring — interval=%ds, heartbeat=%ds, idle=%ds",
@@ -987,31 +1145,103 @@ def _monitor_loop(cfg: dict, reporter: Reporter, tray: TrayAgent | None) -> None
             changed = app_id != prev_app or title != prev_title
             heartbeat_due = (now - last_report_time) >= heartbeat_interval
 
-            if changed or heartbeat_due:
+            music, music_version = _get_music_snapshot()
+            if music:
+                music_key = (
+                    str(music.get("title") or ""),
+                    str(music.get("artist") or ""),
+                    str(music.get("app") or ""),
+                )
+            else:
+                music_key = None
+            music_changed = music_key != last_music_key
+            music_has_cover = bool(music and music.get("cover"))
+            cover_became_available = music_has_cover and not last_music_had_cover
+            music_ready = True
+
+            if music and music_changed and not music_has_cover:
+                if pending_music_key != music_key:
+                    pending_music_key = music_key
+                    pending_music_since = now
+                    if music:
+                        log.info(
+                            "Waiting for album cover: %s",
+                            format_report_target(
+                                str(music.get("app") or "music"),
+                                str(music.get("title") or ""),
+                            ),
+                        )
+                if now - pending_music_since < MUSIC_COVER_WAIT_SECONDS:
+                    music_ready = False
+                else:
+                    log.warning("Album cover unavailable after %.0fs; reporting without it",
+                                MUSIC_COVER_WAIT_SECONDS)
+            else:
+                pending_music_key = None
+
+            music_report_due = music_ready and (
+                music_changed or cover_became_available
+            )
+
+            if changed or heartbeat_due or music_report_due:
                 extra = get_battery_extra()
-                music = get_music_info()
-                if music:
+                if music_report_due and music:
+                    include_cover = music_has_cover and (
+                        music_changed or heartbeat_due or cover_became_available
+                    )
+                    if not include_cover:
+                        music.pop("cover", None)
                     extra["music"] = music
+                elif music_ready and music is None and last_reported_music:
+                    # A music-only report is used to clear a stopped player.
+                    pass
+                elif last_reported_music:
+                    # Keep the previous complete music state while waiting for
+                    # the next track's cover, so the public page never clears.
+                    extra["music"] = dict(last_reported_music)
                 reported_target = format_report_target(app_id, title)
                 success = reporter.send(app_id, title, extra)
                 if success:
                     prev_app = app_id
                     prev_title = title
+                    last_music_key = music_key
+                    last_music_had_cover = music_has_cover
+                    if music and music_ready:
+                        last_reported_music = {
+                            "title": str(music.get("title") or ""),
+                            "artist": str(music.get("artist") or ""),
+                            "app": str(music.get("app") or ""),
+                        }
+                    elif music is None and music_ready:
+                        last_reported_music = None
                     last_report_time = now
                     if tray:
                         tray.update_status("在线", reported_target)
                     if changed:
                         log.info("Reported: %s", reported_target)
+                    elif music_report_due:
+                        if music:
+                            music_target = format_report_target(
+                                str(music.get("app") or "music"),
+                                str(music.get("title") or ""),
+                            )
+                            log.info("Music changed: %s", music_target)
+                        else:
+                            log.info("Music stopped")
                 elif reporter.retry_delay > 0:
                     shutdown_event.wait(reporter.retry_delay)
                     continue
 
-            shutdown_event.wait(interval)
+            _wait_for_music_snapshot(
+                music_version,
+                MUSIC_SAMPLE_INTERVAL_SECONDS if pending_music_key else interval
+            )
 
         except Exception as e:
             log.error("Error: %s", e, exc_info=True)
             shutdown_event.wait(interval)
 
+    music_sampler.join(timeout=1)
     log.info("Monitor stopped")
 
 

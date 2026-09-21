@@ -3,3 +3,7 @@ psutil>=5.9
 pystray>=0.19
 Pillow>=10.0
 pycaw>=20231023
+winrt-Windows.Foundation>=3.2.1
+winrt-Windows.Foundation.Collections>=3.2.1
+winrt-Windows.Media.Control>=3.2.1
+winrt-Windows.Storage.Streams>=3.2.1
