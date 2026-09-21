@@ -1,5 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { getTimelineByRange, upsertDailySummary } from "../db";
+import { getUtcDayRange } from "./date-range";
+import {
+  buildDailySummaryUserPrompt,
+  type DailySummaryActivity,
+} from "./daily-summary-prompt";
 
 /**
  * AI Daily Summary Generator
@@ -19,6 +24,7 @@ const DEFAULT_PROMPT = `你是一个简洁文艺的日记助手。根据用户�
 要求：
 - 语气温暖、自然，像朋友在记录今天的片段
 - 描述到目前为止的活动节奏，让人觉得"这一天还在继续"
+- 长时间连续出现的应用可能只是窗口一直开着，不要默认用户全程都在专注使用
 - 不要逐条罗列活动，而是提炼出整体节奏
 - 不要超过150字`;
 
@@ -36,13 +42,6 @@ async function getSystemPrompt(): Promise<string> {
   return DEFAULT_PROMPT;
 }
 
-interface ActivityRow {
-  device_name: string;
-  app_name: string;
-  display_title: string;
-  started_at: string;
-}
-
 function todayStr() {
   const d = new Date();
   // At midnight (0:00), summarize yesterday's data instead of today's empty day
@@ -52,71 +51,28 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function buildUserPrompt(rows: ActivityRow[]): string {
-  // Find time range
-  const times = rows.map((r) => r.started_at).filter(Boolean).sort();
-  const timeRange = times.length >= 2
-    ? `${times[0].slice(11, 16)} ~ ${times[times.length - 1].slice(11, 16)}`
-    : times.length === 1
-      ? times[0].slice(11, 16)
-      : "";
-
-  // Aggregate by device → app → total mentions + titles
-  const byDevice = new Map<string, Map<string, { count: number; titles: Set<string> }>>();
-  for (const r of rows) {
-    let dev = byDevice.get(r.device_name);
-    if (!dev) { dev = new Map(); byDevice.set(r.device_name, dev); }
-    let app = dev.get(r.app_name);
-    if (!app) { app = { count: 0, titles: new Set() }; dev.set(r.app_name, app); }
-    app.count++;
-    if (r.display_title) app.titles.add(r.display_title);
-  }
-
-  const now = new Date();
-  const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  const lines: string[] = [`日期: ${todayStr()}`, `当前时间: ${currentTime}`];
-  if (timeRange) lines.push(`活动时段: ${timeRange}`);
-
-  // Time-ordered activity timeline (sampled to avoid token overflow)
-  lines.push(`\n活动时间线（按时间顺序）:`);
-  const step = Math.max(1, Math.floor(rows.length / 30));
-  for (let i = 0; i < rows.length; i += step) {
-    const r = rows[i]!;
-    const t = r.started_at.slice(11, 16);
-    const label = r.display_title ? ` - ${r.display_title.slice(0, 40)}` : "";
-    lines.push(`  ${t} [${r.device_name}] ${r.app_name}${label}`);
-  }
-
-  lines.push(`\n各应用使用统计:`);
-  for (const [dev, apps] of byDevice) {
-    lines.push(`[${dev}]`);
-    const sorted = Array.from(apps.entries()).sort((a, b) => b[1].count - a[1].count);
-    for (const [app, { count, titles }] of sorted.slice(0, 8)) {
-      const t = titles.size ? ` (${Array.from(titles).slice(0, 3).join(", ")})` : "";
-      lines.push(`  ${app}: ${count}条记录${t}`);
-    }
-  }
-  return lines.join("\n");
-}
-
 export async function generateDailySummary(): Promise<void> {
   if (!AI_API_URL || !AI_API_KEY) {
     return; // AI not configured, skip silently
   }
 
   const date = todayStr();
-  const nextDate = (() => {
-    const d = new Date(date + "T00:00:00");
-    d.setDate(d.getDate() + 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  })();
-  const rows = getTimelineByRange.all(date, nextDate) as ActivityRow[];
+  const dayRange = getUtcDayRange(date, new Date().getTimezoneOffset());
+  if (!dayRange) {
+    console.error(`[ai-summary] Invalid local date range for ${date}`);
+    return;
+  }
+
+  const rows = getTimelineByRange.all(
+    dayRange.start,
+    dayRange.end,
+  ) as DailySummaryActivity[];
   if (rows.length === 0) {
     console.log("[ai-summary] No activity data for today, skipping");
     return;
   }
 
-  const userPrompt = buildUserPrompt(rows);
+  const userPrompt = buildDailySummaryUserPrompt(rows, date);
 
   try {
     const res = await fetch(AI_API_URL, {
