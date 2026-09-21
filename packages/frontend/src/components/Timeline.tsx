@@ -1,5 +1,4 @@
-import { useRef, useEffect, useState } from "react";
-import * as echarts from "echarts";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TimelineSegment } from "@/lib/api";
 
 const PALETTE = [
@@ -7,44 +6,522 @@ const PALETTE = [
   "#b88870", "#789a78", "#b0906a", "#a080a0", "#7ab0a0",
 ];
 
-function formatDuration(minutes: number): string {
-  if (minutes < 1) return "<1m";
-  if (minutes < 60) return `${minutes}m`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h${m}m` : `${h}h`;
+const LANE_HEIGHT = 52;
+const AXIS_HEIGHT = 24;
+const MERGE_GAP_MS = 2 * 60 * 1000;
+const ZOOM_LEVELS = [4, 6, 8, 12, 16, 24, 32, 48, 64];
+const DEFAULT_ZOOM_INDEX = 4;
+const TICK_INTERVALS = [1, 2, 5, 10, 15, 30, 60];
+
+export type ActivityViewMode = "timeline" | "usage";
+
+interface Lane {
+  activities: Array<{
+    aggregateOffset: number;
+    segment: TimelineSegment;
+  }>;
+  appName: string;
+  totalMinutes: number;
 }
 
-function minsSinceMidnight(isoStr: string): number {
-  const d = new Date(isoStr);
-  return d.getHours() * 60 + d.getMinutes();
-}
-
-/** Merge consecutive segments with same app_name */
-function mergeSegments(segs: TimelineSegment[]): TimelineSegment[] {
-  if (segs.length === 0) return [];
-  const merged: TimelineSegment[] = [];
-  let cur = segs[0]!;
-  for (let i = 1; i < segs.length; i++) {
-    const next = segs[i]!;
-    if (next.app_name === cur.app_name) {
-      cur = { ...cur, ended_at: next.ended_at, duration_minutes: cur.duration_minutes + next.duration_minutes };
-    } else {
-      merged.push(cur);
-      cur = next;
-    }
-  }
-  merged.push(cur);
-  return merged;
+interface ActiveBar {
+  appName: string;
+  color: string;
+  laneIndex: number;
+  left: number;
+  segment: TimelineSegment;
+  width: number;
 }
 
 interface Props {
   segments: TimelineSegment[];
-  summary: Record<string, Record<string, number>>;
   currentAppByDevice: Record<string, string>;
+  isToday: boolean;
+  mode: ActivityViewMode;
 }
 
-export default function Timeline({ segments, currentAppByDevice }: Props) {
+function formatDuration(minutes: number): string {
+  if (minutes < 1) return "<1分钟";
+  if (minutes < 60) return `${minutes}分钟`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0
+    ? `${hours}小时${remainingMinutes}分钟`
+    : `${hours}小时`;
+}
+
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "--:--";
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function minsSinceMidnight(iso: string): number {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return 0;
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function segmentEndMs(segment: TimelineSegment): number {
+  const startedAt = new Date(segment.started_at).getTime();
+  const endedAt = segment.ended_at
+    ? new Date(segment.ended_at).getTime()
+    : startedAt + segment.duration_minutes * 60_000;
+  return Number.isFinite(endedAt) ? endedAt : startedAt;
+}
+
+function mergeSegments(segments: TimelineSegment[]): TimelineSegment[] {
+  if (segments.length === 0) return [];
+
+  const merged: TimelineSegment[] = [];
+  let current = segments[0]!;
+
+  for (let i = 1; i < segments.length; i++) {
+    const next = segments[i]!;
+    const nextStartedAt = new Date(next.started_at).getTime();
+    const gapMs = nextStartedAt - segmentEndMs(current);
+    const isContinuous =
+      Number.isFinite(gapMs) && gapMs >= 0 && gapMs <= MERGE_GAP_MS;
+
+    if (next.app_name === current.app_name && isContinuous) {
+      current = {
+        ...current,
+        ended_at: next.ended_at,
+        display_title: next.display_title || current.display_title,
+        duration_minutes: current.duration_minutes + next.duration_minutes,
+      };
+      continue;
+    }
+
+    merged.push(current);
+    current = next;
+  }
+
+  merged.push(current);
+  return merged;
+}
+
+function buildLanes(
+  segments: TimelineSegment[],
+  currentApp: string | undefined,
+): Lane[] {
+  const laneMap = new Map<string, TimelineSegment[]>();
+  for (const segment of mergeSegments(segments)) {
+    const existing = laneMap.get(segment.app_name);
+    if (existing) {
+      existing.push(segment);
+    } else {
+      laneMap.set(segment.app_name, [segment]);
+    }
+  }
+
+  return Array.from(laneMap.entries())
+    .map(([appName, appSegments]) => {
+      let aggregateOffset = 0;
+      let totalMinutes = 0;
+      const activities = appSegments.map((segment) => {
+        const activity = { aggregateOffset, segment };
+        aggregateOffset += segment.duration_minutes;
+        totalMinutes += segment.duration_minutes;
+        return activity;
+      });
+      return { appName, activities, totalMinutes };
+    })
+    .sort((a, b) => {
+      if (a.appName === currentApp) return -1;
+      if (b.appName === currentApp) return 1;
+      return b.totalMinutes - a.totalMinutes ||
+        a.appName.localeCompare(b.appName, "zh-CN");
+    });
+}
+
+function getColor(appName: string, colorMap: Map<string, string>): string {
+  const existing = colorMap.get(appName);
+  if (existing) return existing;
+  const color = PALETTE[colorMap.size % PALETTE.length]!;
+  colorMap.set(appName, color);
+  return color;
+}
+
+function getTickInterval(pxPerMinute: number): number {
+  const rawInterval = Math.max(1, Math.round(60 / pxPerMinute));
+  return TICK_INTERVALS.find((interval) => interval >= rawInterval) ?? 60;
+}
+
+function getLatestMinute(segments: TimelineSegment[]): number {
+  let latest = 0;
+  for (const segment of segments) {
+    const endedAt = segmentEndMs(segment);
+    const d = new Date(endedAt);
+    latest = Math.max(latest, d.getHours() * 60 + d.getMinutes());
+  }
+  return latest;
+}
+
+function currentMinute(): number {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function NowIndicator({
+  height,
+  isToday,
+  pxPerMinute,
+}: {
+  height: number;
+  isToday: boolean;
+  pxPerMinute: number;
+}) {
+  const [nowMinute, setNowMinute] = useState<number | null>(null);
+
+  useEffect(() => {
+    setNowMinute(currentMinute());
+    const timer = window.setInterval(() => setNowMinute(currentMinute()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  if (!isToday || nowMinute === null) return null;
+
+  return (
+    <div
+      className="gantt-now"
+      style={{
+        left: nowMinute * pxPerMinute,
+        top: AXIS_HEIGHT,
+        height: Math.max(0, height - AXIS_HEIGHT),
+      }}
+      aria-hidden="true"
+    />
+  );
+}
+
+function DeviceTimeline({
+  currentApp,
+  deviceName,
+  isToday,
+  mode,
+  onZoomIn,
+  onZoomOut,
+  pxPerMinute,
+  segments,
+  zoomIndex,
+}: {
+  currentApp: string | undefined;
+  deviceName: string;
+  isToday: boolean;
+  mode: ActivityViewMode;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  pxPerMinute: number;
+  segments: TimelineSegment[];
+  zoomIndex: number;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const initializedRef = useRef(false);
+  const lastZoomRef = useRef<number | null>(null);
+  const lastModeRef = useRef<ActivityViewMode | null>(null);
+  const [hoveredBar, setHoveredBar] = useState<ActiveBar | null>(null);
+  const [selectedBar, setSelectedBar] = useState<ActiveBar | null>(null);
+
+  const colorMap = useMemo(() => new Map<string, string>(), []);
+  const lanes = useMemo(
+    () => buildLanes(segments, currentApp),
+    [segments, currentApp],
+  );
+  const totalHeight = AXIS_HEIGHT + lanes.length * LANE_HEIGHT;
+  const totalWidth = 1440 * pxPerMinute;
+  const tickInterval = getTickInterval(pxPerMinute);
+  const ticks = useMemo(
+    () => Array.from(
+      { length: Math.floor(1440 / tickInterval) + 1 },
+      (_, index) => index * tickInterval,
+    ),
+    [tickInterval],
+  );
+
+  useEffect(() => {
+    setHoveredBar(null);
+    setSelectedBar(null);
+  }, [segments]);
+
+  useEffect(() => {
+    const scrollElement = scrollRef.current;
+    if (!scrollElement || segments.length === 0) return;
+
+    const isFirstRender = !initializedRef.current;
+    const zoomChanged = lastZoomRef.current !== pxPerMinute;
+    const modeChanged = lastModeRef.current !== mode;
+    if (!isFirstRender && !zoomChanged && !modeChanged) return;
+
+    const latestMinute = getLatestMinute(segments);
+    const nowMinute = currentMinute();
+    const focusMinute = mode === "usage"
+      ? 0
+      : latestMinute > 0 && Math.abs(nowMinute - latestMinute) > 15
+        ? latestMinute
+        : isToday
+          ? nowMinute
+          : latestMinute;
+    const target = focusMinute * pxPerMinute - scrollElement.clientWidth / 2;
+    const nextScrollLeft = Math.max(
+      0,
+      Math.min(target, totalWidth - scrollElement.clientWidth),
+    );
+    if (isFirstRender) {
+      scrollElement.scrollLeft = nextScrollLeft;
+    } else {
+      scrollElement.scrollTo({ left: nextScrollLeft, behavior: "smooth" });
+    }
+    initializedRef.current = true;
+    lastZoomRef.current = pxPerMinute;
+    lastModeRef.current = mode;
+  }, [isToday, mode, pxPerMinute, segments, totalWidth]);
+
+  const activeBar = hoveredBar ?? selectedBar;
+  const tooltipLeft = activeBar
+    ? Math.min(
+        Math.max(activeBar.left + activeBar.width / 2, 120),
+        Math.max(120, totalWidth - 120),
+      )
+    : 0;
+
+  return (
+    <section className="gantt-device">
+      <div className="gantt-device-header">
+        <p className="gantt-device-name">{deviceName}</p>
+        <div className="gantt-zoom">
+          <button
+            type="button"
+            className="gantt-zoom-btn"
+            onClick={onZoomOut}
+            disabled={zoomIndex === 0}
+            aria-label="缩小时间线"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className="gantt-zoom-btn"
+            onClick={onZoomIn}
+            disabled={zoomIndex === ZOOM_LEVELS.length - 1}
+            aria-label="放大时间线"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
+      <div className="gantt-chart" style={{ height: totalHeight }}>
+        <div className="gantt-labels">
+          <div className="gantt-label-spacer" style={{ height: AXIS_HEIGHT }} />
+          {lanes.map((lane) => {
+            const isCurrent = lane.appName === currentApp;
+            return (
+              <div
+                key={lane.appName}
+                className="gantt-label"
+                style={{ height: LANE_HEIGHT }}
+              >
+                {isCurrent && <span className="gantt-label-now">当前</span>}
+                <span className="gantt-label-name" title={lane.appName}>
+                  {lane.appName}
+                </span>
+                <span className="gantt-label-dur">
+                  {formatDuration(lane.totalMinutes)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="gantt-scroll" ref={scrollRef}>
+          <div
+            className="gantt-timeline"
+            style={{ width: totalWidth, height: totalHeight }}
+          >
+            <div className="gantt-axis" style={{ height: AXIS_HEIGHT }}>
+              {Array.from({ length: 24 }, (_, hour) => (
+                <span
+                  key={hour}
+                  className="gantt-axis-label"
+                  style={{
+                    left: hour * 60 * pxPerMinute,
+                    opacity: mode === "timeline" ? 1 : 0,
+                  }}
+                >
+                  {String(hour).padStart(2, "0")}:00
+                </span>
+              ))}
+              <span
+                className="gantt-axis-mode-label"
+                style={{ opacity: mode === "usage" ? 1 : 0 }}
+              >
+                累计使用
+              </span>
+            </div>
+
+            {ticks.map((minute) => {
+              const isMajor = minute % 60 === 0;
+              return (
+                <div
+                  key={minute}
+                  className="gantt-grid-line"
+                  style={{
+                    left: minute * pxPerMinute,
+                    top: AXIS_HEIGHT,
+                    height: Math.max(0, totalHeight - AXIS_HEIGHT),
+                    opacity: mode === "timeline"
+                      ? isMajor ? 0.22 : 0.07
+                      : 0,
+                  }}
+                />
+              );
+            })}
+
+            {lanes.map((lane, laneIndex) => {
+              const color = getColor(lane.appName, colorMap);
+              const isCurrent = lane.appName === currentApp;
+              const laneTop = AXIS_HEIGHT + laneIndex * LANE_HEIGHT;
+
+              return (
+                <div
+                  key={lane.appName}
+                  className="gantt-lane"
+                  style={{
+                    top: laneTop,
+                    width: totalWidth,
+                    height: LANE_HEIGHT,
+                  }}
+                >
+                  <div
+                    className="gantt-lane-bg"
+                    style={{ backgroundColor: isCurrent ? `${color}0a` : undefined }}
+                  />
+
+                  {lane.activities.map(
+                    ({ aggregateOffset, segment }, segmentIndex) => {
+                      const startMinute = minsSinceMidnight(segment.started_at);
+                      const activityWidth = Math.max(
+                        segment.duration_minutes * pxPerMinute,
+                        2,
+                      );
+                      const width = mode === "usage"
+                        ? activityWidth + 1
+                        : activityWidth;
+                      const left = (
+                        mode === "timeline"
+                          ? startMinute * pxPerMinute
+                          : aggregateOffset * pxPerMinute
+                      );
+                      const bar: ActiveBar = {
+                        appName: lane.appName,
+                        color,
+                        laneIndex,
+                        left,
+                        segment,
+                        width,
+                      };
+                      const isSelected =
+                        selectedBar?.segment.started_at === segment.started_at &&
+                        selectedBar.appName === lane.appName;
+                      const label = `${lane.appName}，${formatTime(segment.started_at)}到${segment.ended_at ? formatTime(segment.ended_at) : "现在"}，${formatDuration(segment.duration_minutes)}`;
+
+                      return (
+                        <button
+                          key={`${segment.started_at}-${segmentIndex}`}
+                          type="button"
+                          className={`gantt-bar${isSelected ? " gantt-bar-selected" : ""}`}
+                          style={{
+                            width,
+                            transform: `translateX(${left}px)`,
+                            backgroundColor: color,
+                            opacity: isCurrent ? 0.85 : 0.52,
+                            boxShadow: isCurrent ? `0 0 0 1px ${color}` : undefined,
+                          }}
+                          aria-label={label}
+                          onMouseEnter={() => setHoveredBar(bar)}
+                          onMouseLeave={() => setHoveredBar(null)}
+                          onFocus={() => setHoveredBar(bar)}
+                          onBlur={() => setHoveredBar(null)}
+                          onClick={() => {
+                            setSelectedBar((current) =>
+                              current?.segment.started_at === segment.started_at &&
+                              current.appName === lane.appName
+                                ? null
+                                : bar,
+                            );
+                          }}
+                        />
+                      );
+                    },
+                  )}
+                </div>
+              );
+            })}
+
+            <NowIndicator
+              height={totalHeight}
+              isToday={isToday && mode === "timeline"}
+              pxPerMinute={pxPerMinute}
+            />
+
+            {activeBar && (
+              <div
+                className="gantt-tooltip-card"
+                style={{
+                  left: tooltipLeft,
+                  top: AXIS_HEIGHT + activeBar.laneIndex * LANE_HEIGHT + 7,
+                }}
+                role="tooltip"
+              >
+                <strong>
+                  {activeBar.appName}
+                  {activeBar.segment.display_title
+                    ? ` · ${activeBar.segment.display_title}`
+                    : ""}
+                </strong>
+                <span>
+                  {formatTime(activeBar.segment.started_at)} →{" "}
+                  {activeBar.segment.ended_at
+                    ? formatTime(activeBar.segment.ended_at)
+                    : "现在"}
+                  {" · "}
+                  {formatDuration(activeBar.segment.duration_minutes)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function Timeline({
+  segments,
+  currentAppByDevice,
+  isToday,
+  mode,
+}: Props) {
+  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
+  const pxPerMinute = ZOOM_LEVELS[zoomIndex]!;
+
+  const byDevice = useMemo(() => {
+    const devices = new Map<string, { name: string; segments: TimelineSegment[] }>();
+    for (const segment of segments) {
+      const existing = devices.get(segment.device_id);
+      if (existing) {
+        existing.segments.push(segment);
+      } else {
+        devices.set(segment.device_id, {
+          name: segment.device_name,
+          segments: [segment],
+        });
+      }
+    }
+    return devices;
+  }, [segments]);
+
   if (segments.length === 0) {
     return (
       <div className="text-center py-16" style={{ color: "var(--ink-muted)" }}>
@@ -54,266 +531,32 @@ export default function Timeline({ segments, currentAppByDevice }: Props) {
     );
   }
 
-  // Group by device
-  const byDevice = new Map<string, { name: string; segs: TimelineSegment[] }>();
-  for (const seg of segments) {
-    let entry = byDevice.get(seg.device_id);
-    if (!entry) { entry = { name: seg.device_name, segs: [] }; byDevice.set(seg.device_id, entry); }
-    entry.segs.push(seg);
-  }
+  const handleZoomIn = () => {
+    setZoomIndex((current) =>
+      Math.min(current + 1, ZOOM_LEVELS.length - 1),
+    );
+  };
 
-  // Defer nowMin to client-side only to avoid hydration mismatch
-  const [nowMin, setNowMin] = useState(0);
-  useEffect(() => {
-    setNowMin(new Date().getHours() * 60 + new Date().getMinutes());
-    const timer = setInterval(() => {
-      setNowMin(new Date().getHours() * 60 + new Date().getMinutes());
-    }, 60000);
-    return () => clearInterval(timer);
-  }, []);
+  const handleZoomOut = () => {
+    setZoomIndex((current) => Math.max(current - 1, 0));
+  };
 
   return (
     <div className="gantt">
-      {Array.from(byDevice.entries()).map(([deviceId, { name, segs }]) => {
-        const currentApp = currentAppByDevice[deviceId];
-        const merged = mergeSegments(segs);
-
-        // Build lanes (apps sorted by duration, current first)
-        const laneMap = new Map<string, TimelineSegment[]>();
-        for (const s of merged) {
-          let list = laneMap.get(s.app_name);
-          if (!list) { list = []; laneMap.set(s.app_name, list); }
-          list.push(s);
-        }
-        const lanes = Array.from(laneMap.entries()).sort((a, b) => {
-          if (a[0] === currentApp) return -1;
-          if (b[0] === currentApp) return 1;
-          const da = a[1].reduce((s, x) => s + x.duration_minutes, 0);
-          const db = b[1].reduce((s, x) => s + x.duration_minutes, 0);
-          return db - da;
-        });
-
-        const appNames = lanes.map(([app]) => app);
-        const colorMap = new Map<string, string>();
-        let ci = 0;
-        for (const [app] of lanes) {
-          if (!colorMap.has(app)) {
-            colorMap.set(app, PALETTE[ci % PALETTE.length]!);
-            ci++;
-          }
-        }
-
-        // Build ECharts data: [startMin, duration, appIndex, appName, displayTitle, endedAt]
-        const barData: any[][] = [];
-        for (let li = 0; li < lanes.length; li++) {
-          const [app, appSegs] = lanes[li]!;
-          for (const seg of appSegs) {
-            const startMin = minsSinceMidnight(seg.started_at);
-            const durMin = Math.max(seg.duration_minutes, 0.1);
-            barData.push([startMin, durMin, li, app, seg.display_title || "", seg.ended_at || ""]);
-          }
-        }
-
-        return (
-          <DeviceChart
-            key={deviceId}
-            deviceName={name}
-            appNames={appNames}
-            colorMap={colorMap}
-            barData={barData}
-            nowMin={nowMin}
-            currentApp={currentApp}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-function DeviceChart({
-  deviceName, appNames, colorMap, barData, nowMin, currentApp,
-}: {
-  deviceName: string;
-  appNames: string[];
-  colorMap: Map<string, string>;
-  barData: any[][];
-  nowMin: number;
-  currentApp: string;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<echarts.ECharts | null>(null);
-  const barShapesRef = useRef<any[]>([]);
-  const nowMinRef = useRef(nowMin);
-  nowMinRef.current = nowMin;
-
-  // Init chart once
-  useEffect(() => {
-    if (!containerRef.current || chartRef.current) return;
-    const chart = echarts.init(containerRef.current, null, { renderer: "canvas" });
-    chartRef.current = chart;
-
-    chart.setOption({
-      grid: { left: 80, right: 20, top: 30, bottom: 30 },
-      xAxis: {
-        type: "value", min: 0, max: 1440,
-        axisLabel: {
-          formatter: (v: number) => {
-            const h = Math.floor(v / 60);
-            const m = Math.floor(v % 60);
-            return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-          },
-          fontSize: 10, color: "#8B7E74",
-        },
-        axisLine: { lineStyle: { color: "#E8D5C4" } },
-        splitLine: { show: true, lineStyle: { color: "#E8D5C4", type: "dashed", opacity: 0.3 } },
-      },
-      yAxis: {
-        type: "category",
-        axisLabel: { fontSize: 11, color: "#8B7E74", fontWeight: 500 },
-        axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false },
-      },
-      dataZoom: [
-        { type: "slider", xAxisIndex: 0, filterMode: "none", start: 0, end: 100, top: 0, height: 20,
-          borderColor: "#E8D5C4", backgroundColor: "transparent",
-          fillerColor: "rgba(232, 160, 191, 0.2)", handleStyle: { color: "#E8A0BF" },
-          textStyle: { fontSize: 9, color: "#8B7E74" },
-          labelFormatter: (v: number) => {
-            const h = Math.floor(v / 60);
-            const m = Math.floor(v % 60);
-            return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-          },
-        },
-        { type: "inside", xAxisIndex: 0, filterMode: "none" },
-      ],
-      tooltip: { trigger: "none" },
-      series: [{
-        type: "custom",
-        renderItem: (_: any, api: any) => {
-          const barData = barShapesRef.current;
-          const children: any[] = [];
-          for (const bar of barData) {
-            const p1 = api.coord([bar.startMin, bar.appIdx]);
-            const p2 = api.coord([bar.startMin + bar.dur, bar.appIdx]);
-            if (!p1 || !p2) continue;
-            const x1 = p1[0], x2 = p2[0];
-            const yCenter = p1[1];
-            const w = Math.max(x2 - x1, 1);
-            if (w < 1 || x1 + w < 0) continue;
-            const laneH = (api.size?.([0, 1])?.[1] ?? 20) * 0.7;
-            children.push({
-              type: "rect",
-              shape: { x: x1, y: yCenter - laneH / 2, width: w, height: laneH },
-              style: { fill: bar.color, opacity: bar.isCur ? 0.85 : 0.5 },
-            });
-          }
-          // Now indicator line
-          const nm = nowMinRef.current;
-          const nowP = api.coord([nm, 0]);
-          if (nowP) {
-            const cy = api.coord([0, -0.5]);
-            const cy2 = api.coord([0, barData.length ? Math.max(...barData.map((b: any) => b.appIdx)) + 0.5 : 0]);
-            if (cy && cy2) {
-              children.push({
-                type: "line",
-                shape: { x1: nowP[0], y1: cy[1], x2: nowP[0], y2: cy2[1] },
-                style: { stroke: "#E8A0BF", lineWidth: 2, opacity: 0.6 },
-                z: 10,
-              });
-            }
-          }
-          return { type: "group", children, clipOverflow: true };
-        },
-        data: [0],
-      }],
-    });
-
-    // Tooltip via mousemove on graphic elements
-    const ttEl = document.createElement("div");
-    ttEl.className = "gantt-tooltip";
-    Object.assign(ttEl.style, {
-      position: "fixed", display: "none", padding: "6px 10px",
-      fontSize: "12px", background: "rgba(255,253,247,0.95)",
-      border: "1px solid #E8D5C4", borderRadius: "6px",
-      pointerEvents: "none", zIndex: "1000",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-    });
-    containerRef.current.appendChild(ttEl);
-
-    chart.on("mousemove", (params: any) => {
-      const pixelX = params.event?.offsetX;
-      const pixelY = params.event?.offsetY;
-      if (pixelX == null || pixelY == null) { ttEl.style.display = "none"; return; }
-      const point = chart.convertFromPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [pixelX, pixelY]);
-      if (!Array.isArray(point)) { ttEl.style.display = "none"; return; }
-      const dataMin = point[0] as number;
-      const dataAppIdx = Math.round(point[1] as number);
-      // Find bar at this position
-      const bars = barShapesRef.current;
-      let hit = null;
-      for (const b of bars) {
-        if (b.appIdx === dataAppIdx && dataMin >= b.startMin && dataMin <= b.startMin + b.dur) {
-          hit = b; break;
-        }
-      }
-      if (hit) {
-        const endStr = (hit.startMin + hit.dur >= 1440) ? "现在" :
-          `${String(Math.floor((hit.startMin + hit.dur) / 60)).padStart(2, "0")}:${String(Math.floor((hit.startMin + hit.dur) % 60)).padStart(2, "0")}`;
-        ttEl.innerHTML = `<strong>${hit.app}</strong><br/>
-          ${String(Math.floor(hit.startMin / 60)).padStart(2, "0")}:${String(Math.floor(hit.startMin % 60)).padStart(2, "0")} → ${endStr}<br/>
-          ${formatDuration(hit.dur)}`;
-        ttEl.style.display = "block";
-        // Position near mouse but avoid overflow
-        const mx = Math.min(pixelX + 15, (containerRef.current?.clientWidth || 600) - 200);
-        const my = Math.min(pixelY + 15, (containerRef.current?.clientHeight || 400) - 60);
-        ttEl.style.left = `${mx}px`;
-        ttEl.style.top = `${my}px`;
-      } else {
-        ttEl.style.display = "none";
-      }
-    });
-    chart.on("mouseout", () => { ttEl.style.display = "none"; });
-
-    const resizeHandler = () => chart.resize();
-    window.addEventListener("resize", resizeHandler);
-
-    return () => {
-      window.removeEventListener("resize", resizeHandler);
-      ttEl.remove();
-      chart.dispose();
-      chartRef.current = null;
-    };
-  }, []);
-
-  // Update bar data when data changes
-  useEffect(() => {
-    const chart = chartRef.current;
-    if (!chart) return;
-
-    // Update yAxis categories
-    chart.setOption({ yAxis: { data: appNames } });
-
-    // Update bar shapes ref (used by renderItem closure)
-    barShapesRef.current = barData.map((d: any[]) => {
-      const startMin = d[0];
-      const dur = d[1];
-      const appIdx = d[2];
-      const app = d[3];
-      const isCur = app === currentApp;
-      const color = colorMap.get(app) || PALETTE[0]!;
-      return { startMin, dur, appIdx, app, isCur, color };
-    });
-
-    // Force custom series to re-render
-    chart.setOption({ series: [{ data: [Date.now()] }] });
-  }, [barData, appNames]);
-
-  return (
-    <div className="gantt-device">
-      <p className="gantt-device-name">{deviceName}</p>
-      <div
-        ref={containerRef}
-        style={{ width: "100%", height: Math.max(250, 60 + appNames.length * 50), overflow: "hidden", minWidth: 0 }}
-      />
+      {Array.from(byDevice.entries()).map(([deviceId, device]) => (
+        <DeviceTimeline
+          key={deviceId}
+          currentApp={currentAppByDevice[deviceId]}
+          deviceName={device.name}
+          isToday={isToday}
+          mode={mode}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          pxPerMinute={pxPerMinute}
+          segments={device.segments}
+          zoomIndex={zoomIndex}
+        />
+      ))}
     </div>
   );
 }

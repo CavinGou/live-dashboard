@@ -16,6 +16,7 @@ export interface DeviceState {
       title?: string;
       artist?: string;
       app?: string;
+      cover?: string;
     };
   };
 }

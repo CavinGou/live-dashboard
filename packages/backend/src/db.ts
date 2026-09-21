@@ -175,6 +175,10 @@ export const getAllDeviceStates = db.prepare(`
   SELECT * FROM device_states ORDER BY last_seen_at DESC
 `);
 
+export const getDeviceStateById = db.prepare(`
+  SELECT * FROM device_states WHERE device_id = ? LIMIT 1
+`);
+
 export const getRecentActivities = db.prepare(`
   SELECT * FROM activities ORDER BY started_at DESC LIMIT 20
 `);

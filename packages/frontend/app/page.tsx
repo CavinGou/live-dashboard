@@ -1,15 +1,12 @@
 "use client";
 
-import type React from "react";
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useDashboard } from "@/hooks/useDashboard";
 import { fetchConfig, type SiteConfig } from "@/lib/api";
 import { getAppDescription } from "@/lib/app-descriptions";
-import Timeline from "@/components/Timeline";
+import Timeline, { type ActivityViewMode } from "@/components/Timeline";
 
 /* ═══ Helpers ═══ */
-const PALETTE = ["#c47d8c", "#7a9e7e", "#b89858", "#8a7ea0", "#7eaab0", "#b08870", "#6a8e6a", "#a0886a", "#9a7090", "#7a9a8a"];
-
 function fmtDur(m: number): string {
   if (!Number.isFinite(m) || m < 1) return "<1m";
   if (m < 60) return `${m}m`;
@@ -70,24 +67,26 @@ function BlossomSVG({ className }: { className?: string }) {
   );
 }
 
-/* ═══ Usage Bar Chart ═══ */
-function UsageChart({ data, maxMins }: { data: { name: string; mins: number; color: string }[]; maxMins: number }) {
-  if (!data.length) return null;
+function MusicCover({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (failed) return null;
+
   return (
-    <div className="usage-chart">
-      {data.map((d, i) => (
-        <div key={d.name} className="usage-row" style={{ "--ci": i } as React.CSSProperties}>
-          <span className="usage-label">{d.name}</span>
-          <div className="usage-track">
-            <div
-              className="usage-fill"
-              style={{ width: `${Math.max(3, (d.mins / maxMins) * 100)}%`, background: d.color }}
-            />
-          </div>
-          <span className="usage-mins">{fmtDur(d.mins)}</span>
-        </div>
-      ))}
-    </div>
+    <img
+      className="music-cover"
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      draggable={false}
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -97,6 +96,7 @@ function UsageChart({ data, maxMins }: { data: { name: string; mins: number; col
 export default function Home() {
   const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard();
   const [activeDevFilter, setActiveDevFilter] = useState<string | null>(null);
+  const [activityView, setActivityView] = useState<ActivityViewMode>("timeline");
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
@@ -112,8 +112,6 @@ export default function Home() {
       }
     }
   }, [current?.devices, activeDevFilter]);
-  const colorRef = useRef(new Map<string, string>());
-
   const data = current;
   const tlData = timeline;
 
@@ -156,84 +154,21 @@ export default function Home() {
     return m;
   }, [data?.devices]);
 
-  useEffect(() => { colorRef.current.clear(); }, [tlData]);
-
   const isToday = mounted && selectedDate === todayStr();
 
-  // Build timeline groups
-  const tlGroups = useMemo(() => {
-    const segs = tlData?.segments ?? [];
-    if (!segs.length) return [];
-
-    const byDev = new Map<string, { name: string; items: typeof segs }>();
-    for (const s of segs) {
-      let e = byDev.get(s.device_id);
-      if (!e) { e = { name: s.device_name, items: [] }; byDev.set(s.device_id, e); }
-      e.items.push(s);
-    }
-
-    return Array.from(byDev.entries()).map(([devId, { name, items }]) => {
-      const agg = new Map<string, { appName: string; title: string; mins: number; last: number; cur: boolean }>();
-      for (const s of items) {
-        const t = new Date(s.started_at).getTime();
-        const ts = Number.isFinite(t) ? t : 0;
-        const ex = agg.get(s.app_name);
-        if (ex) {
-          if (ts > ex.last) { ex.last = ts; if (s.display_title) ex.title = s.display_title; }
-        } else {
-          agg.set(s.app_name, { appName: s.app_name, title: s.display_title || "", mins: 0, last: ts, cur: false });
-        }
-      }
-      const sum = tlData?.summary?.[devId];
-      if (sum) for (const [a, m] of Object.entries(sum)) { const e = agg.get(a); if (e) e.mins = m as number; }
-      const ca = currentAppByDevice[devId];
-      if (ca) { const e = agg.get(ca); if (e) e.cur = true; }
-      const sorted = Array.from(agg.values()).sort((a, b) => (a.cur !== b.cur ? (a.cur ? -1 : 1) : b.mins - a.mins));
-      return { devId, name, apps: sorted };
-    });
-  }, [tlData, currentAppByDevice]);
-
-  // Filtered timeline groups
-  const filteredGroups = useMemo(() => {
-    if (!activeDevFilter) return tlGroups;
-    return tlGroups.filter((g) => g.devId === activeDevFilter);
-  }, [tlGroups, activeDevFilter]);
-
-  // Filtered raw segments for Gantt chart
+  // Filtered raw segments for the activity view
   const filteredSegments = useMemo(() => {
     const segs = tlData?.segments ?? [];
     if (!activeDevFilter) return segs;
     return segs.filter((s) => s.device_id === activeDevFilter);
   }, [tlData, activeDevFilter]);
 
-  function getColor(app: string) {
-    let c = colorRef.current.get(app);
-    if (!c) { c = PALETTE[colorRef.current.size % PALETTE.length]!; colorRef.current.set(app, c); }
-    return c;
-  }
-
-  // Top apps for chart (from filtered or all groups)
-  const chartData = useMemo(() => {
-    const appMins = new Map<string, number>();
-    for (const g of filteredGroups) {
-      for (const a of g.apps) {
-        appMins.set(a.appName, (appMins.get(a.appName) || 0) + a.mins);
-      }
-    }
-    const sorted = Array.from(appMins.entries())
-      .map(([name, mins]) => ({ name, mins, color: getColor(name) }))
-      .sort((a, b) => b.mins - a.mins);
-    return sorted;
-  }, [filteredGroups]);
-
-  const maxChartMins = chartData.length ? chartData[0].mins : 1;
-
-  // Total screen time
   const totalMins = useMemo(() => {
-    let t = 0;
-    for (const g of filteredGroups) for (const a of g.apps) t += a.mins;
-    return t;
-  }, [filteredGroups]);
+    return filteredSegments.reduce(
+      (total, segment) => total + segment.duration_minutes,
+      0,
+    );
+  }, [filteredSegments]);
 
   const handleDevFilter = useCallback((devId: string) => {
     setActiveDevFilter(devId);
@@ -348,6 +283,7 @@ export default function Home() {
                 <div className="music-block reveal reveal-d4">
                   <p className="music-label">正在听的音乐</p>
                   <div className="music-row">
+                    {music.cover && <MusicCover src={music.cover} />}
                     <div className="music-bars">
                       <div className="m-bar" /><div className="m-bar" /><div className="m-bar" /><div className="m-bar" />
                     </div>
@@ -374,14 +310,6 @@ export default function Home() {
                 </span>
               </div>
 
-              {/* Usage chart — moved below summary */}
-              <div className="chart-section reveal reveal-d5">
-                <div className="chart-header">
-                  <span className="chart-label">今日使用排行</span>
-                  <span className="chart-total">{fmtDur(totalMins)}</span>
-                </div>
-                <UsageChart data={chartData} maxMins={maxChartMins} />
-              </div>
             </div>
           ) : (
             <div className="presence-content presence-offline reveal reveal-d2">
@@ -399,22 +327,45 @@ export default function Home() {
           {/* Date nav */}
           <div className="tl-header reveal reveal-d3">
             <span className="tl-title">
-              时间线
+              活动
               {activeDevFilter && (
                 <span className="tl-filter-badge">
                   {(data?.devices ?? []).find((d) => d.device_id === activeDevFilter)?.device_name}
                 </span>
               )}
             </span>
-            <div className="tl-nav">
-              <button type="button" className="btn-subtle" onClick={() => changeDate(offsetDate(selectedDate, -1))} aria-label="前一天">&larr;</button>
-              <span className="tl-date" suppressHydrationWarning>{fmtDate(selectedDate)}</span>
-              <button type="button" className="btn-subtle" onClick={() => changeDate(offsetDate(selectedDate, 1))} disabled={isToday} aria-label="后一天">&rarr;</button>
-              {!isToday && <button type="button" className="btn-subtle btn-today" onClick={() => changeDate(todayStr())}>今天</button>}
+            <div className="tl-header-actions">
+              <span className="tl-total">{fmtDur(totalMins)}</span>
+              <div className="view-switch" role="tablist" aria-label="活动展示模式">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activityView === "timeline"}
+                  className={activityView === "timeline" ? "view-switch-active" : ""}
+                  onClick={() => setActivityView("timeline")}
+                >
+                  时间线
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activityView === "usage"}
+                  className={activityView === "usage" ? "view-switch-active" : ""}
+                  onClick={() => setActivityView("usage")}
+                >
+                  使用排行
+                </button>
+              </div>
+              <div className="tl-nav">
+                <button type="button" className="btn-subtle" onClick={() => changeDate(offsetDate(selectedDate, -1))} aria-label="前一天">&larr;</button>
+                <span className="tl-date" suppressHydrationWarning>{fmtDate(selectedDate)}</span>
+                <button type="button" className="btn-subtle" onClick={() => changeDate(offsetDate(selectedDate, 1))} disabled={isToday} aria-label="后一天">&rarr;</button>
+                {!isToday && <button type="button" className="btn-subtle btn-today" onClick={() => changeDate(todayStr())}>今天</button>}
+              </div>
             </div>
           </div>
 
-          {/* Timeline scroll — Gantt chart */}
+          {/* Activity view — timeline or aggregated ranking */}
           <div className="tl-scroll reveal reveal-d4">
             {filteredSegments.length === 0 && !loading ? (
               <div className="tl-empty">
@@ -426,8 +377,9 @@ export default function Home() {
                 {filteredSegments.length > 0 && (
                   <Timeline
                     segments={filteredSegments}
-                    summary={tlData?.summary ?? {}}
                     currentAppByDevice={currentAppByDevice}
+                    isToday={isToday}
+                    mode={activityView}
                   />
                 )}
               </div>

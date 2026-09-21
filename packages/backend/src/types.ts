@@ -15,6 +15,7 @@ export interface ReportPayload {
       title?: string;
       artist?: string;
       app?: string;
+      cover?: string;
     };
   };
 }

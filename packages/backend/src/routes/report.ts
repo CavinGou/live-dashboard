@@ -2,9 +2,26 @@ import { authenticateToken } from "../middleware/auth";
 import { resolveAppMeta, resolveHostAppLabel } from "../services/app-mapper";
 import { isNSFW } from "../services/nsfw-filter";
 import { isSecretApp, processDisplayTitle, SECRET_APP_NAME } from "../services/privacy-tiers";
-import { canReportActivity, insertActivity, upsertDeviceState, hmacTitle } from "../db";
+import {
+  canReportActivity,
+  getDeviceStateById,
+  hmacTitle,
+  insertActivity,
+  upsertDeviceState,
+} from "../db";
+import { normalizeMusicCover } from "../services/music-meta";
+import type { DeviceState } from "../types";
 
 const MAX_TITLE_LENGTH = 256;
+
+function sameMusic(
+  previous: Record<string, unknown>,
+  current: Record<string, string>
+): boolean {
+  if (!current.title) return false;
+  if (previous.title !== current.title) return false;
+  return (previous.artist || "") === (current.artist || "");
+}
 
 export async function handleReport(req: Request): Promise<Response> {
   // Auth
@@ -106,6 +123,36 @@ export async function handleReport(req: Request): Promise<Response> {
       if (typeof rawMusic.title === "string") music.title = rawMusic.title.slice(0, 256);
       if (typeof rawMusic.artist === "string") music.artist = rawMusic.artist.slice(0, 256);
       if (typeof rawMusic.app === "string") music.app = rawMusic.app.slice(0, 64);
+      const cover = normalizeMusicCover(
+        rawMusic.cover ?? rawMusic.cover_url ?? rawMusic.coverUrl
+      );
+      if (cover) music.cover = cover;
+
+      // The Windows agent sends album art once per track; preserve it for
+      // subsequent reports while the title/artist stay unchanged.
+      if (!cover && music.title) {
+        try {
+          const previousState = getDeviceStateById.get(device.device_id) as
+            | DeviceState
+            | undefined;
+          const previousExtra = previousState?.extra
+            ? JSON.parse(previousState.extra)
+            : {};
+          const previousMusic =
+            previousExtra?.music &&
+            typeof previousExtra.music === "object" &&
+            !Array.isArray(previousExtra.music)
+              ? previousExtra.music as Record<string, unknown>
+              : null;
+          const previousCover = normalizeMusicCover(previousMusic?.cover);
+          if (previousMusic && previousCover && sameMusic(previousMusic, music)) {
+            music.cover = previousCover;
+          }
+        } catch {
+          // Ignore malformed legacy state; the current report still proceeds.
+        }
+      }
+
       if (Object.keys(music).length > 0) {
         extra.music = music;
       }
