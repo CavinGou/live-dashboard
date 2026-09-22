@@ -10,6 +10,7 @@ import {
   upsertDeviceState,
 } from "../db";
 import { normalizeMusicCover } from "../services/music-meta";
+import { publishCurrentUpdate } from "../services/current-events";
 import type { DeviceState } from "../types";
 
 const MAX_TITLE_LENGTH = 256;
@@ -199,5 +200,6 @@ export async function handleReport(req: Request): Promise<Response> {
     return Response.json({ error: "Internal error" }, { status: 500 });
   }
 
+  publishCurrentUpdate("report");
   return Response.json({ ok: true });
 }

@@ -11,6 +11,7 @@ import { handleHealthWebhook } from "./routes/health-webhook";
 import { handleConsentGet, handleConsentPost } from "./routes/consent";
 import { handleConfig } from "./routes/config";
 import { handleProxy } from "./routes/proxy";
+import { handleCurrentEvents } from "./services/current-events";
 import { injectSiteConfig } from "./services/site-config";
 import { cleanupUnconfiguredDeviceData, migrateLegacyTimestamps } from "./db";
 import { getConfiguredDeviceIds } from "./middleware/auth";
@@ -86,6 +87,8 @@ const server = Bun.serve({
     try {
       if (pathname === "/api/report" && req.method === "POST") {
         response = await handleReport(req);
+      } else if (pathname === "/api/events" && req.method === "GET") {
+        response = handleCurrentEvents(req);
       } else if (pathname === "/api/current" && req.method === "GET") {
         const clientIp =
           req.headers.get("x-real-ip") ||

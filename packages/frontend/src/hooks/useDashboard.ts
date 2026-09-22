@@ -4,12 +4,14 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   fetchCurrent,
   fetchTimeline,
+  subscribeCurrentEvents,
   type DashboardRequestOptions,
   type CurrentResponse,
   type TimelineResponse,
 } from "@/lib/api";
 
-const CURRENT_POLL_INTERVAL = 3 * 1000;
+const CURRENT_FALLBACK_POLL_INTERVAL = 3 * 1000;
+const CURRENT_SSE_POLL_INTERVAL = 15 * 1000;
 const TIMELINE_POLL_INTERVAL = 30 * 1000;
 
 function todayStr(): string {
@@ -24,6 +26,7 @@ export function useDashboard(dashboardId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
   const requestOptions = useMemo<DashboardRequestOptions | undefined>(() => {
     return dashboardId ? { dashboardId } : undefined;
   }, [dashboardId]);
@@ -34,6 +37,10 @@ export function useDashboard(dashboardId?: string) {
     const controller = new AbortController();
     let currentRequestId = 0;
     let timelineRequestId = 0;
+    let currentPollTimer: number | undefined;
+    let eventRefreshTimer: number | undefined;
+    let disposed = false;
+    let realtimeConnected = false;
 
     const loadCurrent = async () => {
       const thisRequest = ++currentRequestId;
@@ -69,17 +76,49 @@ export function useDashboard(dashboardId?: string) {
       }
     };
 
+    const scheduleCurrentPoll = () => {
+      if (disposed) return;
+      if (currentPollTimer !== undefined) {
+        window.clearTimeout(currentPollTimer);
+      }
+      currentPollTimer = window.setTimeout(async () => {
+        await loadCurrent();
+        scheduleCurrentPoll();
+      }, realtimeConnected ? CURRENT_SSE_POLL_INTERVAL : CURRENT_FALLBACK_POLL_INTERVAL);
+    };
+
+    const refreshFromEvent = () => {
+      if (eventRefreshTimer !== undefined) {
+        window.clearTimeout(eventRefreshTimer);
+      }
+      eventRefreshTimer = window.setTimeout(loadCurrent, 60);
+    };
+
+    const unsubscribeEvents = subscribeCurrentEvents(
+      refreshFromEvent,
+      (connected) => {
+        const reconnected = connected && !realtimeConnected;
+        realtimeConnected = connected;
+        setRealtimeConnected(connected);
+        if (reconnected) void loadCurrent();
+        scheduleCurrentPoll();
+      },
+    );
+
     setLoading(true);
     Promise.all([loadCurrent(), loadTimeline()]).finally(() => {
       if (!controller.signal.aborted) setLoading(false);
     });
 
-    const currentPollId = setInterval(loadCurrent, CURRENT_POLL_INTERVAL);
+    scheduleCurrentPoll();
     const timelinePollId = setInterval(loadTimeline, TIMELINE_POLL_INTERVAL);
 
     return () => {
+      disposed = true;
       controller.abort();
-      clearInterval(currentPollId);
+      unsubscribeEvents();
+      if (currentPollTimer !== undefined) window.clearTimeout(currentPollTimer);
+      if (eventRefreshTimer !== undefined) window.clearTimeout(eventRefreshTimer);
       clearInterval(timelinePollId);
     };
   }, [requestOptions, selectedDate]);
@@ -88,5 +127,14 @@ export function useDashboard(dashboardId?: string) {
     setSelectedDate(date);
   }, []);
 
-  return { current, timeline, selectedDate, changeDate, loading, error, viewerCount };
+  return {
+    current,
+    timeline,
+    selectedDate,
+    changeDate,
+    loading,
+    error,
+    viewerCount,
+    realtimeConnected,
+  };
 }

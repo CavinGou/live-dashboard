@@ -69,6 +69,12 @@ export interface DashboardRequestOptions {
   dashboardId?: string;
 }
 
+export interface CurrentEventPayload {
+  version: number;
+  reason: string;
+  updated_at: string;
+}
+
 export async function fetchCurrent(signal?: AbortSignal, _options?: DashboardRequestOptions): Promise<CurrentResponse> {
   const res = await fetch(`${API_BASE}/api/current`, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -87,4 +93,26 @@ export async function fetchConfig(signal?: AbortSignal): Promise<SiteConfig> {
   const res = await fetch(`${API_BASE}/api/config`, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+export function subscribeCurrentEvents(
+  onChange: (event: CurrentEventPayload) => void,
+  onConnectionChange?: (connected: boolean) => void,
+): () => void {
+  const source = new EventSource(`${API_BASE}/api/events`);
+
+  const handleCurrent = (event: MessageEvent<string>) => {
+    try {
+      onChange(JSON.parse(event.data) as CurrentEventPayload);
+    } catch {
+      // Ignore malformed event payloads and keep the stream alive.
+    }
+  };
+
+  source.addEventListener("current", handleCurrent as EventListener);
+  source.addEventListener("ready", () => onConnectionChange?.(true));
+  source.addEventListener("open", () => onConnectionChange?.(true));
+  source.addEventListener("error", () => onConnectionChange?.(false));
+
+  return () => source.close();
 }

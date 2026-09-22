@@ -1,6 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  BarChart3,
+  Battery,
+  BatteryCharging,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  LayoutList,
+  Music2,
+  Radio,
+  Sparkles,
+  Wifi,
+  WifiOff,
+} from "lucide-react";
 import { useDashboard } from "@/hooks/useDashboard";
 import { fetchConfig, type SiteConfig } from "@/lib/api";
 import { getAppDescription } from "@/lib/app-descriptions";
@@ -57,18 +72,6 @@ function fmtTime(t?: string) {
   return isNaN(d.getTime()) ? "--:--" : d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
 }
 
-/* ═══ Decorative Blossom ═══ */
-function BlossomSVG({ className }: { className?: string }) {
-  return (
-    <svg className={className || "blossom-deco"} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {[0, 72, 144, 216, 288].map((r) => (
-        <ellipse key={r} cx="100" cy="100" rx="28" ry="48" fill="currentColor" transform={`rotate(${r} 100 100) translate(0 -30)`} opacity="0.7" />
-      ))}
-      <circle cx="100" cy="100" r="12" fill="currentColor" opacity="0.9" />
-    </svg>
-  );
-}
-
 function MusicCover({ src }: { src: string }) {
   const [failed, setFailed] = useState(false);
 
@@ -96,7 +99,16 @@ function MusicCover({ src }: { src: string }) {
    Main Page — 花信 v5
    ═══════════════════════════════════════ */
 export default function Home() {
-  const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard();
+  const {
+    current,
+    timeline,
+    selectedDate,
+    changeDate,
+    loading,
+    error,
+    viewerCount,
+    realtimeConnected,
+  } = useDashboard();
   const [activeDevFilter, setActiveDevFilter] = useState<string | null>(null);
   const [activityView, setActivityView] = useState<ActivityViewMode>("timeline");
   const [mounted, setMounted] = useState(false);
@@ -201,28 +213,24 @@ export default function Home() {
   const { displayName, siteTitle } = siteConfig ?? { displayName: "長青", siteTitle: "事件面板-長青" };
 
   return (
-    <>
-      {/* Fireflies — visible only in night mode */}
-      <div className="firefly-container" aria-hidden="true">
-        <div className="firefly" /><div className="firefly" /><div className="firefly" />
-        <div className="firefly" /><div className="firefly" /><div className="firefly" />
-        <div className="firefly" /><div className="firefly" />
-      </div>
+    <div className="dashboard-root">
+      <div className="ambient-plane" aria-hidden="true" />
 
-      {/* ── Header ── */}
-      <header className="top-bar reveal">
+      <header className="top-bar glass-toolbar reveal">
         <div className="top-bar-inner">
-          {/* Left: title */}
           <div className="top-bar-left">
-            <h1 className="site-title">{siteTitle}</h1>
-            {mounted && <span className="site-greeting">{greeting()}</span>}
+            <span className="brand-mark"><Radio size={17} /></span>
+            <div className="brand-copy">
+              <h1 className="site-title">{siteTitle}</h1>
+              {mounted && <span className="site-greeting">{greeting()}</span>}
+            </div>
           </div>
 
-          {/* Center: devices as clickable buttons showing current app */}
           <div className="top-bar-center reveal reveal-d2">
             {(data?.devices ?? []).map((d) => {
               const isSel = activeDevFilter === d.device_id;
               const isOn = d.is_online === 1;
+              const battery = d.extra?.battery_percent;
               return (
                 <button
                   key={d.device_id}
@@ -230,63 +238,70 @@ export default function Home() {
                   className={`dev-btn ${isSel ? "dev-btn-active" : ""} ${isOn ? "" : "dev-btn-off"}`}
                   onClick={() => handleDevFilter(d.device_id)}
                 >
+                  <span className={`device-presence ${isOn ? "is-live" : ""}`} />
                   <span className="dev-btn-name">{d.device_name}</span>
-                  {isOn && (
+                  {isOn ? (
                     <span className="dev-btn-app">
                       {d.app_name}{d.display_title ? ` · ${d.display_title}` : ""}
                     </span>
+                  ) : (
+                    <span className="dev-btn-off-label">离线</span>
                   )}
-                  {!isOn && <span className="dev-btn-off-label">离线</span>}
-                  {isOn && d.extra && typeof d.extra.battery_percent === "number" && (
-                    <span className="dev-btn-batt">{d.extra.battery_charging ? "\u26A1" : ""}{d.extra.battery_percent}%</span>
+                  {isOn && typeof battery === "number" && (
+                    <span className="dev-btn-batt">
+                      {d.extra?.battery_charging ? <BatteryCharging size={13} /> : <Battery size={13} />}
+                      {battery}%
+                    </span>
                   )}
                 </button>
               );
             })}
           </div>
 
-          {/* Right: time + viewers */}
           <div className="top-bar-right">
-            <span className="top-time">{mounted ? fmtTime(data?.server_time) : "--:--"}</span>
+            <span className={`sync-pill ${realtimeConnected ? "is-live" : ""}`}>
+              {realtimeConnected ? <Wifi size={13} /> : <WifiOff size={13} />}
+              {realtimeConnected ? "实时推送" : "轮询兜底"}
+            </span>
+            <span className="top-time">
+              <Clock3 size={14} />
+              {mounted ? fmtTime(data?.server_time) : "--:--"}
+            </span>
             {viewerCount > 0 && <span className="top-viewers">{viewerCount} 人在看</span>}
           </div>
         </div>
       </header>
 
-      {/* ── Main ── */}
-      <div className="panels">
-        {/* ═══ LEFT ═══ */}
-        <div className="panel-left">
-          <BlossomSVG />
-          <div className="petal-container">
-            <div className="petal" /><div className="petal" /><div className="petal" /><div className="petal" />
-            <div className="petal" /><div className="petal" /><div className="petal" /><div className="petal" />
-            <div className="petal" /><div className="petal" /><div className="petal" /><div className="petal" />
-          </div>
-
+      <main className="panels">
+        <section className="panel-left glass-panel reveal reveal-d2">
           {isOnline ? (
             <div className="presence-content">
-              {/* Poetic online indicator */}
-              <p className="status-line reveal reveal-d2">
+              <div className="status-line">
                 <span className="status-dot" />
                 此刻在线
-              </p>
+              </div>
 
-              {/* Hero: split into app + what */}
-              <div className="hero-block reveal reveal-d3">
-                <p className="hero-app hero-alive">正在用 {active.app_name}</p>
+              <div className="hero-block">
+                <div className="hero-app-row">
+                  <span className="app-monogram" aria-hidden="true">
+                    {active.app_name.slice(0, 1).toUpperCase()}
+                  </span>
+                  <div className="hero-copy">
+                    <span className="hero-kicker">当前应用</span>
+                    <p className="hero-app hero-alive">{active.app_name}</p>
+                  </div>
+                </div>
                 {active.display_title && (
                   <p className="hero-title">{getAppDescription(active.app_name, active.display_title)}</p>
                 )}
               </div>
 
-              {/* Music — detailed */}
               {music?.title && (
-                <div className="music-block reveal reveal-d4">
-                  <p className="music-label">正在听的音乐</p>
+                <div className="music-block reveal reveal-d3">
+                  <div className="section-label"><Music2 size={14} />正在播放</div>
                   <div className="music-row">
                     {music.cover && <MusicCover src={music.cover} />}
-                    <div className="music-bars">
+                    <div className="music-bars" aria-hidden="true">
                       <div className="m-bar" /><div className="m-bar" /><div className="m-bar" /><div className="m-bar" />
                     </div>
                     <div className="music-info">
@@ -298,37 +313,32 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Separator */}
-              <div className="orn-sep reveal reveal-d4"><span className="orn-sep-dot" /></div>
-
-              {/* AI Daily Summary — moved above chart */}
-              <div className="ai-summary reveal reveal-d5">
-                <p className="ai-summary-label">今日小结</p>
+              <div className="ai-summary reveal reveal-d4">
+                <div className="ai-summary-header">
+                  <span className="ai-summary-label"><Sparkles size={14} />今日小结</span>
+                  <span className="ai-summary-time">
+                    {dailySummary?.generated_at ? `${dailySummary.generated_at.slice(11, 16)} · AI 生成` : "等待生成"}
+                  </span>
+                </div>
                 <p className="ai-summary-text">
                   {dailySummary?.summary || "整点自动生成"}
                 </p>
-                <span className="ai-summary-time">
-                  {dailySummary?.generated_at ? `${dailySummary.generated_at.slice(11, 16)} · AI 生成` : "等待生成..."}
-                </span>
               </div>
-
             </div>
           ) : (
-            <div className="presence-content presence-offline reveal reveal-d2">
-              <p className="offline-poem-line offline-poem-dim">万籁俱寂，设备已入眠</p>
-              {loading && !data && <p className="offline-loading">轻叩数据之门...</p>}
-              {error && !loading && <p className="offline-loading">信号微弱，尝试重连中</p>}
+            <div className="presence-offline">
+              <span className="offline-icon"><WifiOff size={24} /></span>
+              <p className="offline-poem-line">设备暂时离线</p>
+              {loading && !data && <p className="offline-loading">正在连接数据源...</p>}
+              {error && !loading && <p className="offline-loading">连接中断，正在重试</p>}
             </div>
           )}
+        </section>
 
-
-        </div>
-
-        {/* ═══ RIGHT: Timeline ═══ */}
-        <div className="panel-right">
-          {/* Date nav */}
-          <div className="tl-header reveal reveal-d3">
+        <section className="panel-right glass-panel reveal reveal-d3">
+          <div className="tl-header">
             <span className="tl-title">
+              <BarChart3 size={15} />
               活动
               {activeDevFilter && (
                 <span className="tl-filter-badge">
@@ -346,6 +356,7 @@ export default function Home() {
                   className={activityView === "timeline" ? "view-switch-active" : ""}
                   onClick={() => setActivityView("timeline")}
                 >
+                  <LayoutList size={13} />
                   时间线
                 </button>
                 <button
@@ -355,27 +366,34 @@ export default function Home() {
                   className={activityView === "usage" ? "view-switch-active" : ""}
                   onClick={() => setActivityView("usage")}
                 >
+                  <BarChart3 size={13} />
                   使用排行
                 </button>
               </div>
               <div className="tl-nav">
-                <button type="button" className="btn-subtle" onClick={() => changeDate(offsetDate(selectedDate, -1))} aria-label="前一天">&larr;</button>
-                <span className="tl-date" suppressHydrationWarning>{fmtDate(selectedDate)}</span>
-                <button type="button" className="btn-subtle" onClick={() => changeDate(offsetDate(selectedDate, 1))} disabled={isToday} aria-label="后一天">&rarr;</button>
+                <button type="button" className="btn-subtle icon-btn" onClick={() => changeDate(offsetDate(selectedDate, -1))} aria-label="前一天">
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="tl-date" suppressHydrationWarning>
+                  <CalendarDays size={13} />
+                  {fmtDate(selectedDate)}
+                </span>
+                <button type="button" className="btn-subtle icon-btn" onClick={() => changeDate(offsetDate(selectedDate, 1))} disabled={isToday} aria-label="后一天">
+                  <ChevronRight size={16} />
+                </button>
                 {!isToday && <button type="button" className="btn-subtle btn-today" onClick={() => changeDate(todayStr())}>今天</button>}
               </div>
             </div>
           </div>
 
-          {/* Activity view — timeline or aggregated ranking */}
           <div className="tl-scroll reveal reveal-d4">
             {filteredSegments.length === 0 && !loading ? (
               <div className="tl-empty">
-                <p className="tl-empty-poem">尚无足迹</p>
+                <p className="tl-empty-poem">尚无活动记录</p>
                 <p className="tl-empty-sub">这一天还是一张白纸</p>
               </div>
             ) : (
-              <div style={{ opacity: loading && tlData ? 0.4 : 1, transition: "opacity 0.3s" }}>
+              <div style={{ opacity: loading && tlData ? 0.5 : 1, transition: "opacity 0.3s" }}>
                 {filteredSegments.length > 0 && (
                   <Timeline
                     segments={filteredSegments}
@@ -388,12 +406,15 @@ export default function Home() {
             )}
           </div>
 
-          {/* Footer */}
           <div className="tl-footer" suppressHydrationWarning>
-            <span suppressHydrationWarning>每 3 秒自动刷新</span><span suppressHydrationWarning>{displayName} Now</span>
+            <span className={`realtime-status ${realtimeConnected ? "is-live" : ""}`}>
+              {realtimeConnected ? <Wifi size={12} /> : <WifiOff size={12} />}
+              {realtimeConnected ? "SSE 实时同步" : "轮询兜底"}
+            </span>
+            <span>{displayName} Now</span>
           </div>
-        </div>
-      </div>
-    </>
+        </section>
+      </main>
+    </div>
   );
 }

@@ -7,6 +7,7 @@ import {
 } from "../db";
 import { generateDailySummary, getSummaryDate } from "./daily-summary-gen";
 import { getConfiguredDeviceIds } from "../middleware/auth";
+import { publishCurrentUpdate } from "./current-events";
 import cron from "node-cron";
 
 // Cleanup old activities + old summaries every hour
@@ -49,7 +50,10 @@ setInterval(() => {
 // Mark offline devices every 60 seconds
 setInterval(() => {
   try {
-    markOfflineDevices.run();
+    const result = markOfflineDevices.run();
+    if (result.changes > 0) {
+      publishCurrentUpdate("offline");
+    }
   } catch {
     // silent
   }
