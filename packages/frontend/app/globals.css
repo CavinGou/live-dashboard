@@ -2,21 +2,25 @@
 
 :root {
   color-scheme: light;
-  --page-bg: #edf2fa;
-  --page-bg-2: #f8eef4;
-  --page-bg-3: #edf7f1;
-  --glass: rgba(255, 255, 255, 0.48);
-  --glass-strong: rgba(255, 255, 255, 0.68);
-  --glass-soft: rgba(255, 255, 255, 0.34);
-  --glass-border: rgba(255, 255, 255, 0.74);
+  --page-bg: #d6e5fb;
+  --page-bg-2: #ffd8e5;
+  --page-bg-3: #ccefe0;
+  --glass: rgba(255, 255, 255, 0.18);
+  --glass-strong: rgba(255, 255, 255, 0.3);
+  --glass-soft: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.52);
   --glass-line: rgba(116, 128, 154, 0.18);
   --glass-shadow:
-    0 28px 80px rgba(47, 60, 90, 0.16),
-    0 4px 16px rgba(47, 60, 90, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+    0 34px 100px rgba(33, 48, 84, 0.2),
+    0 8px 24px rgba(33, 48, 84, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12),
+    inset 1px 0 0 rgba(255, 255, 255, 0.22),
+    inset -1px 0 0 rgba(255, 255, 255, 0.1);
   --glass-shadow-soft:
-    0 14px 42px rgba(47, 60, 90, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.76);
+    0 16px 46px rgba(39, 54, 86, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
   --ink: #111722;
   --ink-secondary: #46536a;
   --ink-muted: #6f7b91;
@@ -60,9 +64,9 @@ body {
 body {
   color: var(--ink);
   background:
-    linear-gradient(118deg, rgba(103, 173, 255, 0.2), transparent 38%),
-    linear-gradient(250deg, rgba(255, 128, 164, 0.17), transparent 45%),
-    linear-gradient(18deg, rgba(117, 214, 170, 0.14), transparent 54%),
+    linear-gradient(118deg, rgba(87, 165, 255, 0.58), transparent 42%),
+    linear-gradient(250deg, rgba(255, 112, 159, 0.48), transparent 48%),
+    linear-gradient(18deg, rgba(90, 217, 170, 0.42), transparent 56%),
     linear-gradient(145deg, var(--page-bg), var(--page-bg-2) 48%, var(--page-bg-3));
   font-family: var(--font-ui);
   line-height: 1.55;
@@ -97,27 +101,62 @@ button {
 
 .ambient-plane {
   position: fixed;
-  inset: -24%;
+  inset: -34%;
   z-index: -2;
   pointer-events: none;
   background:
-    linear-gradient(108deg, rgba(255, 255, 255, 0.44), transparent 34%),
-    linear-gradient(255deg, rgba(255, 255, 255, 0.3), transparent 39%),
-    repeating-linear-gradient(92deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 92px);
-  filter: saturate(118%);
-  transform: rotate(-4deg);
+    linear-gradient(112deg, rgba(127, 196, 255, 0.86) 0 18%, transparent 38%),
+    linear-gradient(244deg, rgba(255, 139, 184, 0.74) 0 21%, transparent 48%),
+    linear-gradient(18deg, rgba(121, 226, 187, 0.72) 0 20%, transparent 52%),
+    linear-gradient(314deg, rgba(255, 211, 133, 0.62) 0 17%, transparent 44%),
+    linear-gradient(145deg, #d9e8fb 0%, #f3d9e8 48%, #d5eee3 100%);
+  background-size: 145% 145%;
+  filter: blur(34px) saturate(142%);
+  transform: rotate(-5deg) scale(1.08);
+  animation: ambient-flow 28s ease-in-out infinite alternate;
+}
+
+.ambient-plane::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(104deg, rgba(255, 255, 255, 0.12) 0 1px, transparent 1px 88px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent 28%);
+  mix-blend-mode: soft-light;
+  opacity: 0.72;
+}
+
+@keyframes ambient-flow {
+  0% {
+    background-position: 0% 20%;
+    transform: rotate(-5deg) scale(1.08) translate3d(-1.2%, 0, 0);
+  }
+  50% {
+    background-position: 62% 44%;
+    transform: rotate(-2deg) scale(1.12) translate3d(0, -1.4%, 0);
+  }
+  100% {
+    background-position: 100% 76%;
+    transform: rotate(-6deg) scale(1.08) translate3d(1%, 0.8%, 0);
+  }
 }
 
 .glass-toolbar,
 .glass-panel {
   position: relative;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.3)),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.3) 0%,
+      rgba(255, 255, 255, 0.08) 35%,
+      rgba(255, 255, 255, 0.18) 100%
+    ),
     var(--glass);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: blur(32px) saturate(175%);
-  backdrop-filter: blur(32px) saturate(175%);
+  -webkit-backdrop-filter: blur(44px) saturate(205%) contrast(108%);
+  backdrop-filter: blur(44px) saturate(205%) contrast(108%);
 }
 
 .glass-toolbar::before,
@@ -128,9 +167,40 @@ button {
   border-radius: inherit;
   pointer-events: none;
   background:
-    linear-gradient(112deg, rgba(255, 255, 255, 0.58), transparent 28%),
-    radial-gradient(130% 80% at 90% 0%, rgba(255, 255, 255, 0.26), transparent 58%);
-  opacity: 0.72;
+    linear-gradient(
+      104deg,
+      rgba(255, 255, 255, 0.5) 0%,
+      rgba(255, 255, 255, 0.11) 8%,
+      transparent 18%,
+      transparent 72%,
+      rgba(255, 255, 255, 0.2) 84%,
+      rgba(255, 255, 255, 0.06) 92%,
+      transparent 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.24),
+      transparent 11%,
+      transparent 84%,
+      rgba(255, 255, 255, 0.08)
+    );
+  opacity: 0.9;
+  mix-blend-mode: screen;
+}
+
+.glass-toolbar::after,
+.glass-panel::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: calc(24px - 1px);
+  pointer-events: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.56);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 8px 18px rgba(255, 255, 255, 0.09),
+    inset 0 -10px 22px rgba(68, 86, 118, 0.04);
+  opacity: 0.82;
 }
 
 .glass-toolbar > *,
@@ -140,10 +210,15 @@ button {
 }
 
 /* Header */
-.top-bar {
+.top-bar-host {
   margin: 14px 18px 12px;
+  min-width: 0;
+}
+
+.top-bar-liquid {
+  width: 100%;
   padding: 11px 14px;
-  border-radius: 24px;
+  contain: paint;
 }
 
 .top-bar-inner {
@@ -343,6 +418,30 @@ button {
   overflow: hidden;
 }
 
+.panel-host {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.panel-liquid {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  contain: paint;
+}
+
+.panel-content {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .panel-left {
   display: flex;
   flex-direction: column;
@@ -482,12 +581,19 @@ button {
   align-items: center;
   gap: 12px;
   padding: 11px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.38);
   border-radius: 22px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.28)),
-    rgba(255, 255, 255, 0.2);
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.24),
+      rgba(255, 255, 255, 0.06) 55%,
+      rgba(255, 255, 255, 0.13)
+    ),
+    rgba(255, 255, 255, 0.045);
   box-shadow: var(--glass-shadow-soft);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  backdrop-filter: blur(24px) saturate(170%);
 }
 
 .music-cover {
@@ -563,10 +669,16 @@ button {
   min-height: 0;
   margin-top: auto;
   padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.56);
+  border: 1px solid rgba(255, 255, 255, 0.32);
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.25);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.48);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.035)),
+    rgba(255, 255, 255, 0.025);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    0 14px 38px rgba(35, 48, 75, 0.08);
+  -webkit-backdrop-filter: blur(24px) saturate(165%);
+  backdrop-filter: blur(24px) saturate(165%);
 }
 
 .ai-summary-header {
@@ -870,9 +982,9 @@ button {
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.34);
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.085);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.62),
     0 10px 30px rgba(47, 60, 90, 0.08);
@@ -1160,7 +1272,7 @@ body.night-mode .ambient-plane {
 
 /* Responsive */
 @media (max-width: 960px) {
-  .top-bar {
+  .top-bar-host {
     margin: 10px 12px 10px;
   }
 
@@ -1214,10 +1326,12 @@ body.night-mode .ambient-plane {
     overflow: visible;
   }
 
-  .top-bar {
+  .top-bar-host {
     margin: 8px;
+  }
+
+  .top-bar-liquid {
     padding: 10px;
-    border-radius: 22px;
   }
 
   .brand-mark {

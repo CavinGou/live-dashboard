@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import LiquidGlass from "simple-liquid-glass";
 import {
   BarChart3,
   Battery,
@@ -95,6 +104,37 @@ function MusicCover({ src }: { src: string }) {
   );
 }
 
+function GlassSurface({
+  backdropRef,
+  children,
+  className,
+  radius,
+}: {
+  backdropRef: RefObject<HTMLDivElement | null>;
+  children: ReactNode;
+  className: string;
+  radius: number;
+}) {
+  return (
+    <LiquidGlass
+      backdropRef={backdropRef}
+      className={`liquid-shell ${className}`}
+      radius={radius}
+      refraction="lens"
+      lensProfile="material"
+      quality="high"
+      blur={2}
+      saturation={118}
+      aberrationIntensity={0.26}
+      glassColor="rgba(255,255,255,0.07)"
+      borderColor="rgba(255,255,255,0.52)"
+      effectMode="svg"
+    >
+      {children}
+    </LiquidGlass>
+  );
+}
+
 /* ═══════════════════════════════════════
    Main Page — 花信 v5
    ═══════════════════════════════════════ */
@@ -112,6 +152,7 @@ export default function Home() {
   const [activeDevFilter, setActiveDevFilter] = useState<string | null>(null);
   const [activityView, setActivityView] = useState<ActivityViewMode>("timeline");
   const [mounted, setMounted] = useState(false);
+  const backdropRef = useRef<HTMLDivElement>(null);
   useEffect(() => { setMounted(true); }, []);
 
   // Default to first online device on initial load
@@ -214,10 +255,15 @@ export default function Home() {
 
   return (
     <div className="dashboard-root">
-      <div className="ambient-plane" aria-hidden="true" />
+      <div ref={backdropRef} className="ambient-plane" aria-hidden="true" />
 
-      <header className="top-bar glass-toolbar reveal">
-        <div className="top-bar-inner">
+      <header className="top-bar-host reveal">
+        <GlassSurface
+          backdropRef={backdropRef}
+          className="top-bar-liquid"
+          radius={24}
+        >
+          <div className="top-bar-inner">
           <div className="top-bar-left">
             <span className="brand-mark"><Radio size={17} /></span>
             <div className="brand-copy">
@@ -269,12 +315,19 @@ export default function Home() {
             </span>
             {viewerCount > 0 && <span className="top-viewers">{viewerCount} 人在看</span>}
           </div>
-        </div>
+          </div>
+        </GlassSurface>
       </header>
 
       <main className="panels">
-        <section className="panel-left glass-panel reveal reveal-d2">
-          {isOnline ? (
+        <section className="panel-host panel-left-host reveal reveal-d2">
+          <GlassSurface
+            backdropRef={backdropRef}
+            className="panel-liquid"
+            radius={30}
+          >
+            <div className="panel-content panel-left">
+              {isOnline ? (
             <div className="presence-content">
               <div className="status-line">
                 <span className="status-dot" />
@@ -325,18 +378,26 @@ export default function Home() {
                 </p>
               </div>
             </div>
-          ) : (
+              ) : (
             <div className="presence-offline">
               <span className="offline-icon"><WifiOff size={24} /></span>
               <p className="offline-poem-line">设备暂时离线</p>
               {loading && !data && <p className="offline-loading">正在连接数据源...</p>}
               {error && !loading && <p className="offline-loading">连接中断，正在重试</p>}
             </div>
-          )}
+              )}
+            </div>
+          </GlassSurface>
         </section>
 
-        <section className="panel-right glass-panel reveal reveal-d3">
-          <div className="tl-header">
+        <section className="panel-host panel-right-host reveal reveal-d3">
+          <GlassSurface
+            backdropRef={backdropRef}
+            className="panel-liquid"
+            radius={30}
+          >
+            <div className="panel-content panel-right">
+              <div className="tl-header">
             <span className="tl-title">
               <BarChart3 size={15} />
               活动
@@ -406,13 +467,15 @@ export default function Home() {
             )}
           </div>
 
-          <div className="tl-footer" suppressHydrationWarning>
+              <div className="tl-footer" suppressHydrationWarning>
             <span className={`realtime-status ${realtimeConnected ? "is-live" : ""}`}>
               {realtimeConnected ? <Wifi size={12} /> : <WifiOff size={12} />}
               {realtimeConnected ? "SSE 实时同步" : "轮询兜底"}
             </span>
             <span>{displayName} Now</span>
-          </div>
+              </div>
+            </div>
+          </GlassSurface>
         </section>
       </main>
     </div>
