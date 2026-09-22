@@ -237,7 +237,7 @@ def _parse_foobar_title(title: str) -> tuple[str, str] | None:
 
 _SMTC_CACHE: dict = {}
 _SMTC_CACHE_LOCK = threading.Lock()
-_SMTC_CACHE_TTL = 30
+_SMTC_CACHE_TTL = 1
 _SMTC_MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024
 _SMTC_COVER_SIZE = (192, 192)
 MUSIC_COVER_WAIT_SECONDS = 15.0
