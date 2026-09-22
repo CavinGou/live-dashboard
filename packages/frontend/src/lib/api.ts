@@ -99,9 +99,35 @@ export function subscribeCurrentEvents(
   onChange: (event: CurrentEventPayload) => void,
   onConnectionChange?: (connected: boolean) => void,
 ): () => void {
+  if (typeof EventSource === "undefined") {
+    onConnectionChange?.(false);
+    return () => {};
+  }
+
   const source = new EventSource(`${API_BASE}/api/events`);
+  let disconnectTimer: number | undefined;
+
+  const markConnected = () => {
+    if (disconnectTimer !== undefined) {
+      window.clearTimeout(disconnectTimer);
+      disconnectTimer = undefined;
+    }
+    onConnectionChange?.(true);
+  };
+
+  const markDisconnected = () => {
+    if (disconnectTimer !== undefined) {
+      window.clearTimeout(disconnectTimer);
+    }
+    disconnectTimer = window.setTimeout(() => {
+      if (source.readyState !== EventSource.OPEN) {
+        onConnectionChange?.(false);
+      }
+    }, 1_500);
+  };
 
   const handleCurrent = (event: MessageEvent<string>) => {
+    markConnected();
     try {
       onChange(JSON.parse(event.data) as CurrentEventPayload);
     } catch {
@@ -110,9 +136,14 @@ export function subscribeCurrentEvents(
   };
 
   source.addEventListener("current", handleCurrent as EventListener);
-  source.addEventListener("ready", () => onConnectionChange?.(true));
-  source.addEventListener("open", () => onConnectionChange?.(true));
-  source.addEventListener("error", () => onConnectionChange?.(false));
+  source.addEventListener("ready", markConnected);
+  source.addEventListener("open", markConnected);
+  source.addEventListener("error", markDisconnected);
 
-  return () => source.close();
+  return () => {
+    if (disconnectTimer !== undefined) {
+      window.clearTimeout(disconnectTimer);
+    }
+    source.close();
+  };
 }
