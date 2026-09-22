@@ -122,7 +122,6 @@ button {
     linear-gradient(145deg, #d9e8fb 0%, #f3d9e8 48%, #d5eee3 100%);
   background-size: 145% 145%;
   filter: blur(34px) saturate(142%);
-  animation: ambient-flow 28s ease-in-out infinite alternate;
 }
 
 .ambient-plane::after {
@@ -215,21 +214,6 @@ body.photo-background .view-switch button.view-switch-active {
 @keyframes ambient-image-in {
   from { opacity: 0; transform: scale(1.075); }
   to { opacity: 1; transform: scale(1.03); }
-}
-
-@keyframes ambient-flow {
-  0% {
-    background-position: 0% 20%;
-    transform: rotate(-5deg) scale(1.08) translate3d(-1.2%, 0, 0);
-  }
-  50% {
-    background-position: 62% 44%;
-    transform: rotate(-2deg) scale(1.12) translate3d(0, -1.4%, 0);
-  }
-  100% {
-    background-position: 100% 76%;
-    transform: rotate(-6deg) scale(1.08) translate3d(1%, 0.8%, 0);
-  }
 }
 
 .glass-toolbar,
