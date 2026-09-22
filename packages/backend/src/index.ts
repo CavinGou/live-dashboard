@@ -66,7 +66,7 @@ async function serveStaticFile(realFile: string): Promise<Response> {
 
 const server = Bun.serve({
   port: LISTEN_PORT,
-  async fetch(req) {
+  async fetch(req, server) {
     const url = new URL(req.url);
     const { pathname } = url;
 
@@ -89,6 +89,9 @@ const server = Bun.serve({
       if (pathname === "/api/report" && req.method === "POST") {
         response = await handleReport(req);
       } else if (pathname === "/api/events" && req.method === "GET") {
+        // Bun closes idle HTTP connections after 10s by default, before our 15s
+        // heartbeat can fire. SSE connections must live until the client leaves.
+        server.timeout(req, 0);
         response = handleCurrentEvents(req);
       } else if (pathname === "/api/current" && req.method === "GET") {
         const clientIp =
