@@ -96,6 +96,65 @@ GetLastInputInfo.restype = ctypes.wintypes.BOOL
 GetTickCount = kernel32.GetTickCount
 GetTickCount.restype = ctypes.wintypes.DWORD
 
+_APP_ICON_CACHE: dict[tuple[str, int, int], str | None] = {}
+_APP_ICON_CACHE_LOCK = threading.Lock()
+_APP_ICON_SCRIPT = r"""
+Add-Type -AssemblyName System.Drawing
+$path = [Text.Encoding]::UTF8.GetString(
+    [Convert]::FromBase64String($env:LIVE_DASHBOARD_ICON_PATH)
+)
+$icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
+if ($icon -eq $null) { exit 2 }
+$bitmap = $icon.ToBitmap()
+$stream = New-Object System.IO.MemoryStream
+$bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
+[Convert]::ToBase64String($stream.ToArray())
+$stream.Dispose()
+$bitmap.Dispose()
+$icon.Dispose()
+"""
+
+
+def get_app_icon_data_uri(exe_path: str | None) -> str | None:
+    """Extract and cache the foreground executable's real Windows icon."""
+    if not exe_path:
+        return None
+    try:
+        stat = os.stat(exe_path)
+        cache_key = (exe_path.lower(), stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        return None
+
+    with _APP_ICON_CACHE_LOCK:
+        if cache_key in _APP_ICON_CACHE:
+            return _APP_ICON_CACHE[cache_key]
+
+    result_uri: str | None = None
+    try:
+        encoded_path = base64.b64encode(exe_path.encode("utf-8")).decode("ascii")
+        env = os.environ.copy()
+        env["LIVE_DASHBOARD_ICON_PATH"] = encoded_path
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", _APP_ICON_SCRIPT],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            creationflags=0x08000000,  # CREATE_NO_WINDOW
+            env=env,
+        )
+        if result.returncode == 0:
+            encoded_icon = result.stdout.strip()
+            if encoded_icon and len(encoded_icon) <= 64 * 1024:
+                # Validate before storing so malformed shell output is discarded.
+                base64.b64decode(encoded_icon, validate=True)
+                result_uri = f"data:image/png;base64,{encoded_icon}"
+    except (OSError, subprocess.SubprocessError, ValueError):
+        result_uri = None
+
+    with _APP_ICON_CACHE_LOCK:
+        _APP_ICON_CACHE[cache_key] = result_uri
+    return result_uri
+
 
 def get_idle_seconds() -> float:
     """Return seconds since last keyboard/mouse input."""
@@ -138,8 +197,8 @@ def is_foreground_fullscreen() -> bool:
         return False
 
 
-def get_foreground_info() -> tuple[str, str] | None:
-    """Return (process_name, window_title) of the current foreground window."""
+def get_foreground_info() -> tuple[str, str, str | None] | None:
+    """Return process name, title, and executable path for the foreground window."""
     hwnd = GetForegroundWindow()
     if not hwnd:
         return None
@@ -156,9 +215,11 @@ def get_foreground_info() -> tuple[str, str] | None:
     try:
         proc = psutil.Process(pid.value)
         proc_name = proc.name()
+        exe_path = proc.exe()
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         proc_name = "unknown"
-    return proc_name, title
+        exe_path = None
+    return proc_name, title, exe_path
 
 
 # ---------------------------------------------------------------------------
@@ -1136,7 +1197,7 @@ def _monitor_loop(cfg: dict, reporter: Reporter, tray: TrayAgent | None) -> None
                 shutdown_event.wait(interval)
                 continue
 
-            app_id, title = info
+            app_id, title, app_path = info
 
             # Keep tray status responsive; current item is updated only after a successful report.
             if tray:
@@ -1185,6 +1246,9 @@ def _monitor_loop(cfg: dict, reporter: Reporter, tray: TrayAgent | None) -> None
 
             if changed or heartbeat_due or music_report_due:
                 extra = get_battery_extra()
+                app_icon = get_app_icon_data_uri(app_path)
+                if app_icon:
+                    extra["app_icon"] = app_icon
                 if music_report_due and music:
                     include_cover = music_has_cover and (
                         music_changed or heartbeat_due or cover_became_available
