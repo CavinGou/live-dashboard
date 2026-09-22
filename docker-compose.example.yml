@@ -15,8 +15,17 @@ services:
       - DEVICE_TOKEN_1=${DEVICE_TOKEN_1}
       - DEVICE_TOKEN_2=${DEVICE_TOKEN_2}
       - HASH_SECRET=${HASH_SECRET}
+      - AI_API_URL=${AI_API_URL}
+      - AI_API_KEY=${AI_API_KEY}
+      - AI_API_STYLE=${AI_API_STYLE}
+      - AI_MODEL=${AI_MODEL}
+      - AI_MAX_TOKENS=${AI_MAX_TOKENS}
+      - AI_THINKING=${AI_THINKING}
+      - AI_REASONING_EFFORT=${AI_REASONING_EFFORT}
+      - AI_PROMPT_FILE=${AI_PROMPT_FILE}
     volumes:
       - dashboard_data:/data
+      - ./ai-prompt.txt:/app/ai-prompt.txt:ro
     mem_limit: 128m
     cpus: 0.5
     logging:
