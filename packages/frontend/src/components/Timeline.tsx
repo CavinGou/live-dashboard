@@ -209,10 +209,6 @@ function DeviceTimeline({
     () => buildLanes(segments, currentApp),
     [segments, currentApp],
   );
-  const maxLaneMinutes = Math.max(
-    ...lanes.map((lane) => lane.totalMinutes),
-    1,
-  );
   const totalHeight = AXIS_HEIGHT + lanes.length * LANE_HEIGHT;
   const hourTicks = useMemo(
     () => Array.from({ length: 25 }, (_, hour) => hour * 60),
@@ -329,17 +325,15 @@ function DeviceTimeline({
                       ({ aggregateOffset, segment }, segmentIndex) => {
                       const startMinute = minsSinceMidnight(segment.started_at);
                       const durationMinutes = segmentDurationMinutes(segment);
-                      const scaleMinutes = mode === "usage"
-                        ? maxLaneMinutes
-                        : MINUTES_PER_DAY;
-                      const rawWidth = (durationMinutes / scaleMinutes) * 100;
+                      const rawWidth =
+                        (durationMinutes / MINUTES_PER_DAY) * 100;
                       const width = mode === "usage"
                         ? rawWidth + 0.08
                         : rawWidth;
                       const positionMinute = mode === "timeline"
                         ? startMinute
                         : aggregateOffset;
-                      const left = (positionMinute / scaleMinutes) * 100;
+                      const left = (positionMinute / MINUTES_PER_DAY) * 100;
                       const bar: ActiveBar = {
                         appName: lane.appName,
                         color,
