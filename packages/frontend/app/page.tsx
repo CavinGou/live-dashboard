@@ -402,9 +402,6 @@ export default function Home() {
                   <div className="section-label"><Music2 size={14} />正在播放</div>
                   <div className="music-row">
                     {music.cover && <MusicCover src={music.cover} />}
-                    <div className="music-bars" aria-hidden="true">
-                      <div className="m-bar" /><div className="m-bar" /><div className="m-bar" /><div className="m-bar" />
-                    </div>
                     <div className="music-info">
                       <span className="music-title-text">{music.title}</span>
                       {music.artist && <span className="music-artist">{music.artist}</span>}
