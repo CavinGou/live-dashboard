@@ -304,6 +304,7 @@ body.photo-background .view-switch button.view-switch-active {
   width: 100%;
   min-height: 58px;
   padding: 11px 14px;
+  border-radius: 24px;
   contain: paint;
 }
 
@@ -516,6 +517,7 @@ body.photo-background .view-switch button.view-switch-active {
   height: 100%;
   min-width: 0;
   min-height: 0;
+  border-radius: 30px;
   contain: paint;
 }
 
@@ -1243,7 +1245,7 @@ body.photo-background .view-switch button.view-switch-active {
   min-width: 2px;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0;
   cursor: pointer;
   pointer-events: auto;
   transition:
@@ -1472,6 +1474,7 @@ body.night-mode .ambient-plane {
 
   .top-bar-liquid {
     padding: 10px;
+    border-radius: 22px;
   }
 
   .brand-mark {
@@ -1501,6 +1504,10 @@ body.night-mode .ambient-plane {
   .panel-right {
     padding: 16px;
     border-radius: 22px;
+  }
+
+  .panel-liquid {
+    border-radius: 24px;
   }
 
   .panel-right {
