@@ -766,6 +766,8 @@ body.photo-background .view-switch button.view-switch-active {
 
 .m-bar {
   width: 3px;
+  height: 100%;
+  transform-origin: bottom center;
   border-radius: 999px;
   background: linear-gradient(to top, var(--blue), #68b8ff);
   animation: bar-bounce ease-in-out infinite;
