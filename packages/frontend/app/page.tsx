@@ -384,9 +384,14 @@ export default function Home() {
 
               <div className="hero-block">
                 <div className="hero-app-row">
-                  <span className="app-monogram" aria-hidden="true">
-                    {active.app_name.slice(0, 1).toUpperCase()}
-                  </span>
+                  {active.extra?.app_icon && (
+                    <img
+                      className="app-icon-image"
+                      src={active.extra.app_icon}
+                      alt=""
+                      draggable={false}
+                    />
+                  )}
                   <div className="hero-copy">
                     <span className="hero-kicker">当前应用</span>
                     <p className="hero-app hero-alive">{active.app_name}</p>

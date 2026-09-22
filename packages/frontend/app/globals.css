@@ -657,7 +657,7 @@ body.photo-background .view-switch button.view-switch-active {
   gap: 13px;
 }
 
-.app-monogram {
+.app-icon-image {
   display: grid;
   width: 54px;
   height: 54px;
@@ -665,13 +665,11 @@ body.photo-background .view-switch button.view-switch-active {
   flex-shrink: 0;
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 18px;
-  color: #fff;
-  background: linear-gradient(145deg, rgba(61, 113, 181, 0.94), rgba(24, 42, 76, 0.96));
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.18);
   box-shadow:
     0 14px 30px rgba(32, 53, 89, 0.23),
     inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  font-size: 21px;
-  font-weight: 700;
 }
 
 .hero-copy {

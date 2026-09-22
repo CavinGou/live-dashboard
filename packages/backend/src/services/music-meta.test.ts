@@ -1,6 +1,15 @@
 import { describe, expect, test } from "bun:test";
 
-import { normalizeMusicCover } from "./music-meta";
+import { normalizeImageData, normalizeMusicCover } from "./music-meta";
+
+describe("normalizeImageData", () => {
+  test("accepts raster data URIs with a custom size limit", () => {
+    expect(normalizeImageData("data:image/png;base64,AAAA", 32)).toBe(
+      "data:image/png;base64,AAAA",
+    );
+    expect(normalizeImageData("data:image/png;base64,AAAA", 8)).toBeUndefined();
+  });
+});
 
 describe("normalizeMusicCover", () => {
   test("accepts and trims HTTP(S) image URLs", () => {

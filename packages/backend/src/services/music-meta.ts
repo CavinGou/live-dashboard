@@ -3,6 +3,16 @@ const MAX_MUSIC_COVER_DATA_LENGTH = 256 * 1024;
 const IMAGE_DATA_URI_PATTERN =
   /^data:image\/(?:jpe?g|png|webp|gif|avif);base64,[a-z0-9+/]+={0,2}$/i;
 
+export function normalizeImageData(
+  rawImage: unknown,
+  maxLength = MAX_MUSIC_COVER_DATA_LENGTH,
+): string | undefined {
+  if (typeof rawImage !== "string") return undefined;
+  const image = rawImage.trim();
+  if (!image || image.length > maxLength) return undefined;
+  return IMAGE_DATA_URI_PATTERN.test(image) ? image : undefined;
+}
+
 export function normalizeMusicCover(rawCover: unknown): string | undefined {
   if (typeof rawCover !== "string") return undefined;
 
@@ -10,8 +20,7 @@ export function normalizeMusicCover(rawCover: unknown): string | undefined {
   if (!cover) return undefined;
 
   if (cover.startsWith("data:")) {
-    if (cover.length > MAX_MUSIC_COVER_DATA_LENGTH) return undefined;
-    return IMAGE_DATA_URI_PATTERN.test(cover) ? cover : undefined;
+    return normalizeImageData(cover);
   }
 
   if (cover.length > MAX_MUSIC_COVER_URL_LENGTH) return undefined;

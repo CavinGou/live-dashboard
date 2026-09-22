@@ -9,7 +9,7 @@ import {
   insertActivity,
   upsertDeviceState,
 } from "../db";
-import { normalizeMusicCover } from "../services/music-meta";
+import { normalizeImageData, normalizeMusicCover } from "../services/music-meta";
 import { publishCurrentUpdate } from "../services/current-events";
 import type { DeviceState } from "../types";
 
@@ -117,6 +117,10 @@ export async function handleReport(req: Request): Promise<Response> {
     }
     if (typeof body.extra.battery_charging === "boolean") {
       extra.battery_charging = body.extra.battery_charging;
+    }
+    const appIcon = normalizeImageData(body.extra.app_icon, 64 * 1024);
+    if (appIcon) {
+      extra.app_icon = appIcon;
     }
     const rawMusic = body.extra.music;
     if (rawMusic != null && typeof rawMusic === "object" && !Array.isArray(rawMusic)) {
