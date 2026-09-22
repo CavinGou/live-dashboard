@@ -9,7 +9,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import LiquidGlass from "simple-liquid-glass";
+import dynamic from "next/dynamic";
 import {
   BarChart3,
   Battery,
@@ -26,9 +26,18 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useDashboard } from "@/hooks/useDashboard";
-import { fetchConfig, type SiteConfig } from "@/lib/api";
+import {
+  fetchBackground,
+  fetchConfig,
+  type BackgroundResponse,
+  type SiteConfig,
+} from "@/lib/api";
 import { getAppDescription } from "@/lib/app-descriptions";
 import Timeline, { type ActivityViewMode } from "@/components/Timeline";
+
+const LiquidGlass = dynamic(() => import("liquid-glass-react"), {
+  ssr: false,
+});
 
 /* ═══ Helpers ═══ */
 function fmtDur(m: number): string {
@@ -105,33 +114,37 @@ function MusicCover({ src }: { src: string }) {
 }
 
 function GlassSurface({
-  backdropRef,
+  mouseContainer,
   children,
   className,
   radius,
 }: {
-  backdropRef: RefObject<HTMLDivElement | null>;
+  mouseContainer: RefObject<HTMLDivElement | null>;
   children: ReactNode;
   className: string;
   radius: number;
 }) {
   return (
-    <LiquidGlass
-      backdropRef={backdropRef}
-      className={`liquid-shell ${className}`}
-      radius={radius}
-      refraction="lens"
-      lensProfile="material"
-      quality="high"
-      blur={2}
-      saturation={118}
-      aberrationIntensity={0.26}
-      glassColor="rgba(255,255,255,0.07)"
-      borderColor="rgba(255,255,255,0.52)"
-      effectMode="svg"
-    >
-      {children}
-    </LiquidGlass>
+    <div className={`liquid-surface ${className}`}>
+      <div className="liquid-effect-layer" aria-hidden="true">
+        <LiquidGlass
+          className="liquid-effect"
+          mouseContainer={mouseContainer}
+          displacementScale={36}
+          blurAmount={0.08}
+          saturation={145}
+          aberrationIntensity={1.4}
+          elasticity={0.08}
+          cornerRadius={radius}
+          mode="standard"
+          overLight={false}
+          padding="0"
+        >
+          <span className="liquid-effect-fill" />
+        </LiquidGlass>
+      </div>
+      <div className="liquid-surface-content">{children}</div>
+    </div>
   );
 }
 
@@ -189,6 +202,11 @@ export default function Home() {
 
   const isOnline = !!active;
   const music = active?.extra?.music;
+  const backgroundDevice = useMemo(
+    () => (data?.devices ?? []).find((device) => device.device_id === activeDevFilter) ?? active,
+    [active, activeDevFilter, data?.devices],
+  );
+  const [background, setBackground] = useState<BackgroundResponse | null>(null);
 
   const allOffline = useMemo(() => {
     if (!data?.devices || data.devices.length === 0) return true;
@@ -199,6 +217,28 @@ export default function Home() {
     document.body.classList.toggle("night-mode", allOffline);
     return () => { document.body.classList.remove("night-mode"); };
   }, [allOffline]);
+
+  useEffect(() => {
+    if (!backgroundDevice?.device_id) {
+      setBackground(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    fetchBackground(backgroundDevice.device_id, controller.signal)
+      .then(setBackground)
+      .catch(() => {});
+    return () => controller.abort();
+  }, [
+    backgroundDevice?.device_id,
+    backgroundDevice?.app_id,
+    backgroundDevice?.display_title,
+  ]);
+
+  useEffect(() => {
+    document.body.classList.toggle("photo-background", Boolean(background?.url));
+    return () => document.body.classList.remove("photo-background");
+  }, [background?.url]);
 
   // Current app by device
   const currentAppByDevice = useMemo(() => {
@@ -255,11 +295,19 @@ export default function Home() {
 
   return (
     <div className="dashboard-root">
-      <div ref={backdropRef} className="ambient-plane" aria-hidden="true" />
+      <div ref={backdropRef} className="ambient-plane" aria-hidden="true">
+        {background?.url && (
+          <div
+            key={background.url}
+            className="ambient-image"
+            style={{ backgroundImage: `url(${JSON.stringify(background.url)})` }}
+          />
+        )}
+      </div>
 
       <header className="top-bar-host reveal">
         <GlassSurface
-          backdropRef={backdropRef}
+          mouseContainer={backdropRef}
           className="top-bar-liquid"
           radius={24}
         >
@@ -322,7 +370,7 @@ export default function Home() {
       <main className="panels">
         <section className="panel-host panel-left-host reveal reveal-d2">
           <GlassSurface
-            backdropRef={backdropRef}
+            mouseContainer={backdropRef}
             className="panel-liquid"
             radius={30}
           >
@@ -392,7 +440,7 @@ export default function Home() {
 
         <section className="panel-host panel-right-host reveal reveal-d3">
           <GlassSurface
-            backdropRef={backdropRef}
+            mouseContainer={backdropRef}
             className="panel-liquid"
             radius={30}
           >
@@ -467,13 +515,23 @@ export default function Home() {
             )}
           </div>
 
-              <div className="tl-footer" suppressHydrationWarning>
+          <div className="tl-footer" suppressHydrationWarning>
             <span className={`realtime-status ${realtimeConnected ? "is-live" : ""}`}>
               {realtimeConnected ? <Wifi size={12} /> : <WifiOff size={12} />}
               {realtimeConnected ? "SSE 实时同步" : "轮询兜底"}
             </span>
+            <span
+              className="background-source"
+              title={background?.copyright || background?.title || ""}
+            >
+              {background?.source === "bing"
+                ? "Bing 每日壁纸"
+                : background?.source === "activity"
+                  ? "活动背景"
+                  : "动态背景"}
+            </span>
             <span>{displayName} Now</span>
-              </div>
+          </div>
             </div>
           </GlassSurface>
         </section>

@@ -15,7 +15,10 @@
  *   "windows": { "someapp.exe":  { "name": "某应用", "statusText": "正在搞事情喵~" } },
  *   "android": { "com.foo.bar":  { "name": "某应用" } },
  *   "macos":   { "SomeApp":      { "statusText": "正在忙喵~" } },
- *   "statusTexts": { "某应用": "正在搞事情喵~" }
+ *   "statusTexts": { "某应用": "正在搞事情喵~" },
+ *   "backgrounds": [
+ *     { "appId": "Code.exe", "title": "某项目", "url": "https://example.com/bg.jpg" }
+ *   ]
  * }
  *
  * 平台段按 app_id（进程名/包名，大小写不敏感）匹配；statusTexts 段按映射后的
@@ -29,10 +32,18 @@ export interface CustomOverrideEntry {
   statusText?: string;
 }
 
+export interface CustomBackgroundEntry {
+  appId?: string;
+  appName?: string;
+  title?: string;
+  url: string;
+}
+
 const MAX_ENTRIES_PER_SECTION = 500;
 const MAX_KEY_LENGTH = 160;
 const MAX_NAME_LENGTH = 64;
 const MAX_STATUS_TEXT_LENGTH = 128;
+const MAX_BACKGROUND_URL_LENGTH = 2048;
 
 const PLATFORMS = ["windows", "android", "macos"] as const;
 type Platform = (typeof PLATFORMS)[number];
@@ -43,6 +54,7 @@ const customByPlatform: Record<Platform, Map<string, CustomOverrideEntry>> = {
   macos: new Map(),
 };
 const customStatusTexts = new Map<string, string>();
+const customBackgrounds: CustomBackgroundEntry[] = [];
 
 function cleanString(value: unknown, maxLength: number): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -98,6 +110,55 @@ function loadStatusTextSection(raw: unknown): number {
   return loaded;
 }
 
+function normalizeBackgroundUrl(value: unknown): string | undefined {
+  const urlValue = cleanString(value, MAX_BACKGROUND_URL_LENGTH);
+  if (!urlValue) return undefined;
+  try {
+    const url = new URL(urlValue);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function loadBackgroundSection(raw: unknown): number {
+  if (Array.isArray(raw)) {
+    let loaded = 0;
+    for (const value of raw) {
+      if (loaded >= MAX_ENTRIES_PER_SECTION) break;
+      if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+      const record = value as Record<string, unknown>;
+      const url = normalizeBackgroundUrl(record.url);
+      const appId = cleanString(record.appId, MAX_KEY_LENGTH);
+      const appName = cleanString(record.appName, MAX_NAME_LENGTH);
+      const title = cleanString(record.title, MAX_KEY_LENGTH);
+      if (!url || (!appId && !appName && !title)) {
+        console.warn("[custom-mappings] backgrounds: 跳过非法条目");
+        continue;
+      }
+      customBackgrounds.push({ appId, appName, title, url });
+      loaded++;
+    }
+    return loaded;
+  }
+
+  if (!raw || typeof raw !== "object") return 0;
+  let loaded = 0;
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (loaded >= MAX_ENTRIES_PER_SECTION) break;
+    const matcher = cleanString(key, MAX_KEY_LENGTH);
+    const url = normalizeBackgroundUrl(value);
+    if (!matcher || !url) {
+      console.warn(`[custom-mappings] backgrounds: 跳过非法条目 "${key}"`);
+      continue;
+    }
+    customBackgrounds.push({ appId: matcher, appName: matcher, url });
+    loaded++;
+  }
+  return loaded;
+}
+
 function resolveMappingsPath(): string | null {
   const fromEnv = process.env.CUSTOM_MAPPINGS_FILE?.trim();
   if (fromEnv) return fromEnv;
@@ -124,6 +185,7 @@ function resolveMappingsPath(): string | null {
       total += loadPlatformSection(platform, parsed[platform]);
     }
     total += loadStatusTextSection(parsed.statusTexts);
+    total += loadBackgroundSection(parsed.backgrounds);
     if (total > 0) {
       console.log(`[custom-mappings] 已加载 ${total} 条自定义映射（${file}）`);
     }
@@ -148,4 +210,32 @@ export function getCustomOverride(
 export function getCustomStatusText(appName: string): string | undefined {
   if (!appName) return undefined;
   return customStatusTexts.get(appName.toLowerCase());
+}
+
+export function matchCustomBackground(
+  entries: CustomBackgroundEntry[],
+  activity: {
+    appId: string;
+    appName: string;
+    displayTitle?: string;
+  },
+): CustomBackgroundEntry | undefined {
+  const appId = activity.appId.trim().toLowerCase();
+  const appName = activity.appName.trim().toLowerCase();
+  const title = (activity.displayTitle || "").trim().toLowerCase();
+
+  return entries.find((entry) => {
+    if (entry.appId && entry.appId.toLowerCase() !== appId) return false;
+    if (entry.appName && entry.appName.toLowerCase() !== appName) return false;
+    if (entry.title && !title.includes(entry.title.toLowerCase())) return false;
+    return true;
+  });
+}
+
+export function getCustomBackground(activity: {
+  appId: string;
+  appName: string;
+  displayTitle?: string;
+}): CustomBackgroundEntry | undefined {
+  return matchCustomBackground(customBackgrounds, activity);
 }

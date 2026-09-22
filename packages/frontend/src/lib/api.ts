@@ -69,6 +69,17 @@ export interface DashboardRequestOptions {
   dashboardId?: string;
 }
 
+export interface BackgroundResponse {
+  source: "activity" | "bing" | "fallback";
+  url: string | null;
+  device_id: string;
+  app_id: string;
+  app_name: string;
+  display_title: string;
+  title: string;
+  copyright: string;
+}
+
 export interface CurrentEventPayload {
   version: number;
   reason: string;
@@ -91,6 +102,16 @@ export async function fetchTimeline(date: string, signal?: AbortSignal, _options
 
 export async function fetchConfig(signal?: AbortSignal): Promise<SiteConfig> {
   const res = await fetch(`${API_BASE}/api/config`, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function fetchBackground(
+  deviceId: string,
+  signal?: AbortSignal,
+): Promise<BackgroundResponse> {
+  const url = `${API_BASE}/api/background?device_id=${encodeURIComponent(deviceId)}`;
+  const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
