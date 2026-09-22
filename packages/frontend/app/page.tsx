@@ -390,7 +390,7 @@ export default function Home() {
 
           {/* Footer */}
           <div className="tl-footer" suppressHydrationWarning>
-            <span suppressHydrationWarning>每 10 秒自动刷新</span><span suppressHydrationWarning>{displayName} Now</span>
+            <span suppressHydrationWarning>每 3 秒自动刷新</span><span suppressHydrationWarning>{displayName} Now</span>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   fetchCurrent,
   fetchTimeline,
@@ -9,7 +9,8 @@ import {
   type TimelineResponse,
 } from "@/lib/api";
 
-const POLL_INTERVAL = 10 * 1000; // 10 seconds
+const CURRENT_POLL_INTERVAL = 3 * 1000;
+const TIMELINE_POLL_INTERVAL = 30 * 1000;
 
 function todayStr(): string {
   const d = new Date();
@@ -23,7 +24,6 @@ export function useDashboard(dashboardId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
-  const firstLoad = useRef(true);
   const requestOptions = useMemo<DashboardRequestOptions | undefined>(() => {
     return dashboardId ? { dashboardId } : undefined;
   }, [dashboardId]);
@@ -32,41 +32,55 @@ export function useDashboard(dashboardId?: string) {
     if (!selectedDate) return;
 
     const controller = new AbortController();
-    let requestId = 0;
+    let currentRequestId = 0;
+    let timelineRequestId = 0;
 
-    const doFetch = async () => {
-      const thisRequest = ++requestId;
+    const loadCurrent = async () => {
+      const thisRequest = ++currentRequestId;
       try {
-        setError(null);
-        if (firstLoad.current) setLoading(true);
-        const [cur, tl] = await Promise.all([
-          fetchCurrent(controller.signal, requestOptions),
-          fetchTimeline(selectedDate, controller.signal, requestOptions),
-        ]);
-        if (!controller.signal.aborted && thisRequest === requestId) {
+        const cur = await fetchCurrent(controller.signal, requestOptions);
+        if (!controller.signal.aborted && thisRequest === currentRequestId) {
           setCurrent(cur);
-          setTimeline(tl);
           setViewerCount(cur.viewer_count ?? 0);
-          firstLoad.current = false;
+          setError(null);
         }
       } catch (e) {
-        if (!controller.signal.aborted && thisRequest === requestId) {
+        if (!controller.signal.aborted && thisRequest === currentRequestId) {
           setError(e instanceof Error ? e.message : "Failed to fetch data");
-        }
-      } finally {
-        if (!controller.signal.aborted && thisRequest === requestId) {
-          setLoading(false);
         }
       }
     };
 
-    firstLoad.current = true;
-    doFetch();
-    const pollId = setInterval(doFetch, POLL_INTERVAL);
+    const loadTimeline = async () => {
+      const thisRequest = ++timelineRequestId;
+      try {
+        const tl = await fetchTimeline(
+          selectedDate,
+          controller.signal,
+          requestOptions,
+        );
+        if (!controller.signal.aborted && thisRequest === timelineRequestId) {
+          setTimeline(tl);
+        }
+      } catch (e) {
+        if (!controller.signal.aborted && thisRequest === timelineRequestId) {
+          setError(e instanceof Error ? e.message : "Failed to fetch data");
+        }
+      }
+    };
+
+    setLoading(true);
+    Promise.all([loadCurrent(), loadTimeline()]).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
+
+    const currentPollId = setInterval(loadCurrent, CURRENT_POLL_INTERVAL);
+    const timelinePollId = setInterval(loadTimeline, TIMELINE_POLL_INTERVAL);
 
     return () => {
       controller.abort();
-      clearInterval(pollId);
+      clearInterval(currentPollId);
+      clearInterval(timelinePollId);
     };
   }, [requestOptions, selectedDate]);
 
