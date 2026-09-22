@@ -72,7 +72,17 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: none;
+}
+
+body.theme-transitions-ready {
   transition: color 0.5s ease, background-color 0.5s ease;
+}
+
+body:not(.theme-transitions-ready) *,
+body:not(.theme-transitions-ready) *::before,
+body:not(.theme-transitions-ready) *::after {
+  transition: none !important;
 }
 
 button,

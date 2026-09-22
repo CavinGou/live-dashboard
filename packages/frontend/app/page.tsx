@@ -171,11 +171,13 @@ export default function Home() {
 
   const isOnline = !!active;
   const music = active?.extra?.music;
+  const hasCurrentData = current !== null;
   const backgroundDevice = useMemo(
     () => (data?.devices ?? []).find((device) => device.device_id === activeDevFilter) ?? active,
     [active, activeDevFilter, data?.devices],
   );
   const [background, setBackground] = useState<BackgroundResponse | null>(null);
+  const [backgroundReady, setBackgroundReady] = useState(false);
 
   const allOffline = useMemo(() => {
     if (!data?.devices || data.devices.length === 0) return true;
@@ -183,21 +185,32 @@ export default function Home() {
   }, [data?.devices]);
 
   useEffect(() => {
+    if (!hasCurrentData) return;
     document.body.classList.toggle("night-mode", allOffline);
     return () => { document.body.classList.remove("night-mode"); };
-  }, [allOffline]);
+  }, [allOffline, hasCurrentData]);
 
   useEffect(() => {
     if (!backgroundDevice?.device_id) {
       setBackground(null);
+      setBackgroundReady(true);
       return;
     }
 
     const controller = new AbortController();
+    const timeout = window.setTimeout(() => setBackgroundReady(true), 1500);
+    setBackgroundReady(false);
     fetchBackground(backgroundDevice.device_id, controller.signal)
       .then(setBackground)
-      .catch(() => {});
-    return () => controller.abort();
+      .catch(() => {})
+      .finally(() => {
+        window.clearTimeout(timeout);
+        if (!controller.signal.aborted) setBackgroundReady(true);
+      });
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [
     backgroundDevice?.device_id,
     backgroundDevice?.app_id,
@@ -208,6 +221,21 @@ export default function Home() {
     document.body.classList.toggle("photo-background", Boolean(background?.url));
     return () => document.body.classList.remove("photo-background");
   }, [background?.url]);
+
+  useEffect(() => {
+    if (!hasCurrentData || !backgroundReady) return;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        document.body.classList.add("theme-transitions-ready");
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+      document.body.classList.remove("theme-transitions-ready");
+    };
+  }, [hasCurrentData, backgroundReady]);
 
   // Current app by device
   const currentAppByDevice = useMemo(() => {
@@ -287,7 +315,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="top-bar-center reveal reveal-d2">
+          <div className="top-bar-center">
             {(data?.devices ?? []).map((d) => {
               const isSel = activeDevFilter === d.device_id;
               const isOn = d.is_online === 1;
@@ -367,7 +395,7 @@ export default function Home() {
                     </div>
 
                     {music?.title && (
-                      <div className="music-block reveal reveal-d3">
+                      <div className="music-block">
                         <div className="section-label"><Music2 size={14} />正在播放</div>
                         <div className="music-row">
                           {music.cover && <MusicCover src={music.cover} />}
@@ -393,7 +421,7 @@ export default function Home() {
 
             <GlassSurface className="left-summary-card">
               <div className="panel-content summary-panel">
-                <div className="ai-summary reveal reveal-d4">
+                <div className="ai-summary">
                   <div className="ai-summary-header">
                     <span className="ai-summary-label"><Sparkles size={14} />今日小结</span>
                     <span className="ai-summary-time">
@@ -462,7 +490,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="tl-scroll reveal reveal-d4">
+          <div className="tl-scroll">
             {filteredSegments.length === 0 && !loading ? (
               <div className="tl-empty">
                 <p className="tl-empty-poem">尚无活动记录</p>
