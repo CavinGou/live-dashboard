@@ -205,8 +205,6 @@ body.photo-background .btn-subtle,
 body.photo-background .sync-pill,
 body.photo-background .realtime-status,
 body.photo-background .music-row,
-body.photo-background .ai-summary,
-body.photo-background .gantt-chart,
 body.photo-background .gantt-labels,
 body.photo-background .gantt-axis {
   border-color: rgba(255, 255, 255, 0.18);
@@ -1125,12 +1123,10 @@ body.photo-background .view-switch button.view-switch-active {
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.085);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.62),
-    0 10px 30px rgba(47, 60, 90, 0.08);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .gantt-label-spacer {
@@ -1389,8 +1385,8 @@ body.night-mode .btn-subtle,
 body.night-mode .sync-pill,
 body.night-mode .realtime-status,
 body.night-mode .music-row,
-body.night-mode .ai-summary,
-body.night-mode .gantt-chart {
+body.night-mode .gantt-labels,
+body.night-mode .gantt-axis {
   border-color: rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.06);
   box-shadow:

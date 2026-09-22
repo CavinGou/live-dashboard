@@ -9,6 +9,7 @@ dist/
 .env
 .env.local
 agents/windows/config.json
+agents/windows/backup/
 agents/android/config.sh
 agents/macos/config.json
 agents/macos/agent.log
