@@ -7,9 +7,7 @@ import {
   useCallback,
   useRef,
   type ReactNode,
-  type RefObject,
 } from "react";
-import dynamic from "next/dynamic";
 import {
   BarChart3,
   Battery,
@@ -34,10 +32,6 @@ import {
 } from "@/lib/api";
 import { getAppDescription } from "@/lib/app-descriptions";
 import Timeline, { type ActivityViewMode } from "@/components/Timeline";
-
-const LiquidGlass = dynamic(() => import("liquid-glass-react"), {
-  ssr: false,
-});
 
 /* ═══ Helpers ═══ */
 function fmtDur(m: number): string {
@@ -114,38 +108,13 @@ function MusicCover({ src }: { src: string }) {
 }
 
 function GlassSurface({
-  mouseContainer,
   children,
   className,
-  radius,
 }: {
-  mouseContainer: RefObject<HTMLDivElement | null>;
   children: ReactNode;
   className: string;
-  radius: number;
 }) {
-  return (
-    <div className={`liquid-surface ${className}`}>
-      <div className="liquid-effect-layer" aria-hidden="true">
-        <LiquidGlass
-          className="liquid-effect"
-          mouseContainer={mouseContainer}
-          displacementScale={36}
-          blurAmount={0.08}
-          saturation={145}
-          aberrationIntensity={1.4}
-          elasticity={0.08}
-          cornerRadius={radius}
-          mode="standard"
-          overLight={false}
-          padding="0"
-        >
-          <span className="liquid-effect-fill" />
-        </LiquidGlass>
-      </div>
-      <div className="liquid-surface-content">{children}</div>
-    </div>
-  );
+  return <div className={`glass-surface ${className}`}>{children}</div>;
 }
 
 /* ═══════════════════════════════════════
@@ -307,9 +276,7 @@ export default function Home() {
 
       <header className="top-bar-host reveal">
         <GlassSurface
-          mouseContainer={backdropRef}
           className="top-bar-liquid"
-          radius={24}
         >
           <div className="top-bar-inner">
           <div className="top-bar-left">
@@ -369,83 +336,81 @@ export default function Home() {
 
       <main className="panels">
         <section className="panel-host panel-left-host reveal reveal-d2">
-          <GlassSurface
-            mouseContainer={backdropRef}
-            className="panel-liquid"
-            radius={30}
-          >
-            <div className="panel-content panel-left">
-              {isOnline ? (
-            <div className="presence-content">
-              <div className="status-line">
-                <span className="status-dot" />
-                此刻在线
-              </div>
+          <div className="left-stack">
+            <GlassSurface className="left-activity-card">
+              <div className="panel-content activity-panel">
+                {isOnline ? (
+                  <div className="presence-content">
+                    <div className="status-line">
+                      <span className="status-dot" />
+                      此刻在线
+                    </div>
 
-              <div className="hero-block">
-                <div className="hero-app-row">
-                  {active.extra?.app_icon && (
-                    <img
-                      className="app-icon-image"
-                      src={active.extra.app_icon}
-                      alt=""
-                      draggable={false}
-                    />
-                  )}
-                  <div className="hero-copy">
-                    <span className="hero-kicker">当前应用</span>
-                    <p className="hero-app hero-alive">{active.app_name}</p>
+                    <div className="hero-block">
+                      <div className="hero-app-row">
+                        {active.extra?.app_icon && (
+                          <img
+                            className="app-icon-image"
+                            src={active.extra.app_icon}
+                            alt=""
+                            draggable={false}
+                          />
+                        )}
+                        <div className="hero-copy">
+                          <span className="hero-kicker">当前应用</span>
+                          <p className="hero-app hero-alive">{active.app_name}</p>
+                        </div>
+                      </div>
+                      {active.display_title && (
+                        <p className="hero-title">{getAppDescription(active.app_name, active.display_title)}</p>
+                      )}
+                    </div>
+
+                    {music?.title && (
+                      <div className="music-block reveal reveal-d3">
+                        <div className="section-label"><Music2 size={14} />正在播放</div>
+                        <div className="music-row">
+                          {music.cover && <MusicCover src={music.cover} />}
+                          <div className="music-info">
+                            <span className="music-title-text">{music.title}</span>
+                            {music.artist && <span className="music-artist">{music.artist}</span>}
+                            {music.app && <span className="music-app">via {music.app}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-                {active.display_title && (
-                  <p className="hero-title">{getAppDescription(active.app_name, active.display_title)}</p>
+                ) : (
+                  <div className="presence-offline">
+                    <span className="offline-icon"><WifiOff size={24} /></span>
+                    <p className="offline-poem-line">设备暂时离线</p>
+                    {loading && !data && <p className="offline-loading">正在连接数据源...</p>}
+                    {error && !loading && <p className="offline-loading">连接中断，正在重试</p>}
+                  </div>
                 )}
               </div>
+            </GlassSurface>
 
-              {music?.title && (
-                <div className="music-block reveal reveal-d3">
-                  <div className="section-label"><Music2 size={14} />正在播放</div>
-                  <div className="music-row">
-                    {music.cover && <MusicCover src={music.cover} />}
-                    <div className="music-info">
-                      <span className="music-title-text">{music.title}</span>
-                      {music.artist && <span className="music-artist">{music.artist}</span>}
-                      {music.app && <span className="music-app">via {music.app}</span>}
-                    </div>
+            <GlassSurface className="left-summary-card">
+              <div className="panel-content summary-panel">
+                <div className="ai-summary reveal reveal-d4">
+                  <div className="ai-summary-header">
+                    <span className="ai-summary-label"><Sparkles size={14} />今日小结</span>
+                    <span className="ai-summary-time">
+                      {dailySummary?.generated_at ? `${dailySummary.generated_at.slice(11, 16)} · AI 生成` : "等待生成"}
+                    </span>
                   </div>
+                  <p className="ai-summary-text">
+                    {dailySummary?.summary || "整点自动生成"}
+                  </p>
                 </div>
-              )}
-
-              <div className="ai-summary reveal reveal-d4">
-                <div className="ai-summary-header">
-                  <span className="ai-summary-label"><Sparkles size={14} />今日小结</span>
-                  <span className="ai-summary-time">
-                    {dailySummary?.generated_at ? `${dailySummary.generated_at.slice(11, 16)} · AI 生成` : "等待生成"}
-                  </span>
-                </div>
-                <p className="ai-summary-text">
-                  {dailySummary?.summary || "整点自动生成"}
-                </p>
               </div>
-            </div>
-              ) : (
-            <div className="presence-offline">
-              <span className="offline-icon"><WifiOff size={24} /></span>
-              <p className="offline-poem-line">设备暂时离线</p>
-              {loading && !data && <p className="offline-loading">正在连接数据源...</p>}
-              {error && !loading && <p className="offline-loading">连接中断，正在重试</p>}
-            </div>
-              )}
-            </div>
-          </GlassSurface>
+            </GlassSurface>
+          </div>
         </section>
 
         <section className="panel-host panel-right-host reveal reveal-d3">
-          <GlassSurface
-            mouseContainer={backdropRef}
-            className="panel-liquid"
-            radius={30}
-          >
+          <GlassSurface className="panel-liquid">
             <div className="panel-content panel-right">
               <div className="tl-header">
             <span className="tl-title">

@@ -8,7 +8,6 @@
     "start": "next start"
   },
   "dependencies": {
-    "liquid-glass-react": "^1.1.1",
     "lucide-react": "^1.47.0",
     "next": "16.2.10",
     "react": "^19.0.0",
