@@ -1,5 +1,11 @@
-import { cleanupOldActivities, cleanupOldSummaries, markOfflineDevices, db } from "../db";
-import { generateDailySummary } from "./daily-summary-gen";
+import {
+  cleanupOldActivities,
+  cleanupOldSummaries,
+  getDailySummary,
+  markOfflineDevices,
+  db,
+} from "../db";
+import { generateDailySummary, getSummaryDate } from "./daily-summary-gen";
 import { getConfiguredDeviceIds } from "../middleware/auth";
 import cron from "node-cron";
 
@@ -54,4 +60,32 @@ cron.schedule("0 * * * *", () => {
   generateDailySummary().catch((e) => console.error("[cleanup] AI summary failed:", e));
 });
 
-console.log("[cleanup] Scheduled: hourly cleanup, 60s offline check, hourly AI summary (cron: 0 * * * *)");
+const STARTUP_SUMMARY_DELAY_MS = 5_000;
+const SUMMARY_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+
+setTimeout(() => {
+  const date = getSummaryDate();
+  const existing = getDailySummary.get(date) as
+    | { generated_at: string | null }
+    | undefined;
+  const generatedAt = existing?.generated_at
+    ? new Date(existing.generated_at.replace(" ", "T")).getTime()
+    : NaN;
+  const recentlyGenerated =
+    Number.isFinite(generatedAt) &&
+    Date.now() - generatedAt < SUMMARY_REFRESH_INTERVAL_MS;
+
+  if (recentlyGenerated) {
+    console.log(`[ai-summary] Startup summary skipped for ${date}; recent summary exists`);
+    return;
+  }
+
+  console.log(`[ai-summary] Running startup summary for ${date}`);
+  generateDailySummary().catch((e) =>
+    console.error("[cleanup] Startup AI summary failed:", e)
+  );
+}, STARTUP_SUMMARY_DELAY_MS);
+
+console.log(
+  "[cleanup] Scheduled: hourly cleanup, 60s offline check, hourly AI summary, startup summary catch-up"
+);

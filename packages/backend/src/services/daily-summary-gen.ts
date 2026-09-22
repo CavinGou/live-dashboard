@@ -58,7 +58,7 @@ async function getSystemPrompt(): Promise<string> {
   return DEFAULT_PROMPT;
 }
 
-function todayStr() {
+export function getSummaryDate() {
   const d = new Date();
   // At midnight (0:00), summarize yesterday's data instead of today's empty day
   if (d.getHours() === 0) {
@@ -72,7 +72,7 @@ export async function generateDailySummary(): Promise<void> {
     return; // AI not configured, skip silently
   }
 
-  const date = todayStr();
+  const date = getSummaryDate();
   const dayRange = getUtcDayRange(date, new Date().getTimezoneOffset());
   if (!dayRange) {
     console.error(`[ai-summary] Invalid local date range for ${date}`);
