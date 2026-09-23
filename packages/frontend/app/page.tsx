@@ -141,6 +141,7 @@ function preloadImage(url: string, signal: AbortSignal): Promise<void> {
     signal.addEventListener("abort", handleAbort, { once: true });
     image.onload = () => finish();
     image.onerror = () => finish(new Error("Background image failed to load"));
+    image.referrerPolicy = "no-referrer";
     image.src = url;
   });
 }

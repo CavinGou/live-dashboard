@@ -10,6 +10,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "__LIVE_DASHBOARD_SITE_TITLE__",
   description: "__LIVE_DASHBOARD_SITE_DESCRIPTION__",
+  referrer: "no-referrer",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
