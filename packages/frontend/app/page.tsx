@@ -6,6 +6,7 @@ import {
   useState,
   useCallback,
   useRef,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import {
@@ -166,17 +167,23 @@ export default function Home() {
   const backdropRef = useRef<HTMLDivElement>(null);
   useEffect(() => { setMounted(true); }, []);
 
-  // Default to first online device on initial load
+  // Keep focus on a valid device. Initial focus prefers the first online device.
   useEffect(() => {
-    if (activeDevFilter === null && current?.devices) {
-      const devices = current.devices;
-      const online = devices.filter((d) => d.is_online === 1);
-      if (online.length > 0) {
-        setActiveDevFilter(online[0]!.device_id);
-      } else if (devices.length > 0) {
-        setActiveDevFilter(devices[0]!.device_id);
-      }
+    const devices = current?.devices;
+    if (!devices) return;
+
+    if (devices.length === 0) {
+      if (activeDevFilter !== null) setActiveDevFilter(null);
+      return;
     }
+
+    const selectedExists = activeDevFilter
+      ? devices.some((device) => device.device_id === activeDevFilter)
+      : false;
+    if (selectedExists) return;
+
+    const fallback = devices.find((device) => device.is_online === 1) ?? devices[0];
+    setActiveDevFilter(fallback?.device_id ?? null);
   }, [current?.devices, activeDevFilter]);
   const data = current;
   const tlData = timeline;
@@ -198,13 +205,13 @@ export default function Home() {
     return best;
   }, [onlineDevices]);
 
-  const isOnline = !!active;
-  const music = active?.extra?.music;
   const hasCurrentData = current !== null;
-  const backgroundDevice = useMemo(
+  const focusedDevice = useMemo(
     () => (data?.devices ?? []).find((device) => device.device_id === activeDevFilter) ?? active,
     [active, activeDevFilter, data?.devices],
   );
+  const focusedDeviceId = focusedDevice?.device_id ?? null;
+  const music = focusedDevice?.extra?.music;
   const [background, setBackground] = useState<BackgroundResponse | null>(null);
   const [backgroundReady, setBackgroundReady] = useState(false);
 
@@ -220,7 +227,7 @@ export default function Home() {
   }, [allOffline, hasCurrentData]);
 
   useEffect(() => {
-    const deviceId = backgroundDevice?.device_id;
+    const deviceId = focusedDeviceId;
     if (!deviceId) {
       setBackground(null);
       setBackgroundReady(true);
@@ -277,9 +284,9 @@ export default function Home() {
       activeController?.abort();
     };
   }, [
-    backgroundDevice?.device_id,
-    backgroundDevice?.app_id,
-    backgroundDevice?.display_title,
+    focusedDeviceId,
+    focusedDevice?.app_id,
+    focusedDevice?.display_title,
   ]);
 
   useEffect(() => {
@@ -316,9 +323,9 @@ export default function Home() {
   // Filtered raw segments for the activity view
   const filteredSegments = useMemo(() => {
     const segs = tlData?.segments ?? [];
-    if (!activeDevFilter) return segs;
-    return segs.filter((s) => s.device_id === activeDevFilter);
-  }, [tlData, activeDevFilter]);
+    if (!focusedDeviceId) return segs;
+    return segs.filter((s) => s.device_id === focusedDeviceId);
+  }, [tlData, focusedDeviceId]);
 
   const totalMins = useMemo(() => {
     return filteredSegments.reduce(
@@ -354,6 +361,12 @@ export default function Home() {
   }, []);
 
   const { displayName, siteTitle } = siteConfig ?? { displayName: "長青", siteTitle: "事件面板-長青" };
+  const devices = data?.devices ?? [];
+  const focusedDeviceIndex = Math.max(
+    0,
+    devices.findIndex((device) => device.device_id === focusedDeviceId),
+  );
+  const focusedDevicePosition = devices.length > 0 ? focusedDeviceIndex / devices.length : 0;
 
   return (
     <div className="dashboard-root">
@@ -381,35 +394,52 @@ export default function Home() {
           </div>
 
           <div className="top-bar-center">
-            {(data?.devices ?? []).map((d) => {
-              const isSel = activeDevFilter === d.device_id;
-              const isOn = d.is_online === 1;
-              const battery = d.extra?.battery_percent;
-              return (
-                <button
-                  key={d.device_id}
-                  type="button"
-                  className={`dev-btn ${isSel ? "dev-btn-active" : ""} ${isOn ? "" : "dev-btn-off"}`}
-                  onClick={() => handleDevFilter(d.device_id)}
-                >
-                  <span className={`device-presence ${isOn ? "is-live" : ""}`} />
-                  <span className="dev-btn-name">{d.device_name}</span>
-                  {isOn ? (
-                    <span className="dev-btn-app">
-                      {d.app_name}{d.display_title ? ` · ${d.display_title}` : ""}
-                    </span>
-                  ) : (
-                    <span className="dev-btn-off-label">离线</span>
-                  )}
-                  {isOn && typeof battery === "number" && (
-                    <span className="dev-btn-batt">
-                      {d.extra?.battery_charging ? <BatteryCharging size={13} /> : <Battery size={13} />}
-                      {battery}%
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            {devices.length > 0 && (
+              <div
+                className="device-dock"
+                role="tablist"
+                aria-label="聚焦设备"
+                style={{
+                  "--device-dock-width": `${devices.length * 172}px`,
+                  "--device-count": devices.length,
+                  "--device-indicator-left": `calc(5px + (100% - 10px) * ${focusedDevicePosition})`,
+                  "--device-indicator-width": `calc((100% - 10px) / ${devices.length})`,
+                } as CSSProperties}
+              >
+                <span className="device-dock-indicator" aria-hidden="true" />
+                {devices.map((d) => {
+                  const isSel = focusedDeviceId === d.device_id;
+                  const isOn = d.is_online === 1;
+                  const battery = d.extra?.battery_percent;
+                  return (
+                    <button
+                      key={d.device_id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isSel}
+                      className={`dev-btn ${isSel ? "dev-btn-active" : ""} ${isOn ? "" : "dev-btn-off"}`}
+                      onClick={() => handleDevFilter(d.device_id)}
+                    >
+                      <span className={`device-presence ${isOn ? "is-live" : ""}`} />
+                      <span className="dev-btn-name">{d.device_name}</span>
+                      {isOn ? (
+                        <span className="dev-btn-app">
+                          {d.app_name}{d.display_title ? ` · ${d.display_title}` : ""}
+                        </span>
+                      ) : (
+                        <span className="dev-btn-off-label">离线</span>
+                      )}
+                      {isOn && typeof battery === "number" && (
+                        <span className="dev-btn-batt">
+                          {d.extra?.battery_charging ? <BatteryCharging size={13} /> : <Battery size={13} />}
+                          {battery}%
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="top-bar-right">
@@ -432,7 +462,7 @@ export default function Home() {
           <div className="left-stack">
             <GlassSurface className="left-activity-card">
               <div className="panel-content activity-panel">
-                {isOnline ? (
+                {focusedDevice?.is_online === 1 ? (
                   <div className="presence-content">
                     <div className="status-line">
                       <span className="status-dot" />
@@ -441,21 +471,21 @@ export default function Home() {
 
                     <div className="hero-block">
                       <div className="hero-app-row">
-                        {active.extra?.app_icon && (
+                        {focusedDevice.extra?.app_icon && (
                           <img
                             className="app-icon-image"
-                            src={active.extra.app_icon}
+                            src={focusedDevice.extra.app_icon}
                             alt=""
                             draggable={false}
                           />
                         )}
                         <div className="hero-copy">
                           <span className="hero-kicker">当前应用</span>
-                          <p className="hero-app hero-alive">{active.app_name}</p>
+                          <p className="hero-app hero-alive">{focusedDevice.app_name}</p>
                         </div>
                       </div>
-                      {active.display_title && (
-                        <p className="hero-title">{getAppDescription(active.app_name, active.display_title)}</p>
+                      {focusedDevice.display_title && (
+                        <p className="hero-title">{getAppDescription(focusedDevice.app_name, focusedDevice.display_title)}</p>
                       )}
                     </div>
 
@@ -511,7 +541,7 @@ export default function Home() {
               活动
               {activeDevFilter && (
                 <span className="tl-filter-badge">
-                  {(data?.devices ?? []).find((d) => d.device_id === activeDevFilter)?.device_name}
+                  {focusedDevice?.device_name}
                 </span>
               )}
             </span>
