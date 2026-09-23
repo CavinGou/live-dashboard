@@ -7,6 +7,28 @@ export interface BingWallpaper {
 const CACHE_TTL_MS = 30 * 60 * 1000;
 let cached: { value: BingWallpaper | null; fetchedAt: number } | null = null;
 
+function resolveImageUrl(rawUrl: string, rawUrlBase: string): string | null {
+  const source = rawUrlBase || rawUrl;
+  if (!source) return null;
+
+  try {
+    const url = new URL(source, "https://www.bing.com");
+    const imageId = url.searchParams.get("id");
+
+    if (imageId) {
+      const baseImageId = imageId.replace(/_(?:1920x1080|UHD)\.jpg$/i, "");
+      url.searchParams.set("id", `${baseImageId}_UHD.jpg`);
+      url.searchParams.set("rf", "LaDigue_UHD.jpg");
+      return url.toString();
+    }
+
+    url.pathname = url.pathname.replace(/_(?:1920x1080|UHD)\.jpg$/i, "_UHD.jpg");
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export function parseBingWallpaper(payload: unknown): BingWallpaper | null {
   if (!payload || typeof payload !== "object") return null;
   const images = (payload as { images?: unknown }).images;
@@ -15,18 +37,17 @@ export function parseBingWallpaper(payload: unknown): BingWallpaper | null {
   if (!image || typeof image !== "object") return null;
   const record = image as Record<string, unknown>;
   const rawUrl = typeof record.url === "string" ? record.url.trim() : "";
+  const rawUrlBase = typeof record.urlbase === "string" ? record.urlbase.trim() : "";
   if (!rawUrl) return null;
 
-  try {
-    const url = new URL(rawUrl, "https://www.bing.com").toString();
-    return {
-      url,
-      title: typeof record.title === "string" ? record.title : "",
-      copyright: typeof record.copyright === "string" ? record.copyright : "",
-    };
-  } catch {
-    return null;
-  }
+  const url = resolveImageUrl(rawUrl, rawUrlBase);
+  if (!url) return null;
+
+  return {
+    url,
+    title: typeof record.title === "string" ? record.title : "",
+    copyright: typeof record.copyright === "string" ? record.copyright : "",
+  };
 }
 
 export async function getBingDailyWallpaper(): Promise<BingWallpaper | null> {
