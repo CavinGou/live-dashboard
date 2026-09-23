@@ -371,37 +371,10 @@ body.photo-background .view-switch button.view-switch-active {
   width: var(--device-dock-width);
   min-width: 0;
   padding: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.48);
+  border: 1px solid rgba(255, 255, 255, 0.64);
   border-radius: 999px;
-  background:
-    linear-gradient(
-      145deg,
-      rgba(255, 255, 255, 0.3),
-      rgba(255, 255, 255, 0.07) 46%,
-      rgba(255, 255, 255, 0.2)
-    ),
-    rgba(225, 236, 251, 0.2);
-  box-shadow:
-    0 14px 36px rgba(37, 53, 86, 0.13),
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  -webkit-backdrop-filter: blur(28px) saturate(190%) contrast(104%);
-  backdrop-filter: blur(28px) saturate(190%) contrast(104%);
-  isolation: isolate;
-}
-
-.device-dock::before {
-  content: "";
-  position: absolute;
-  inset: 1px;
-  z-index: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background:
-    linear-gradient(108deg, rgba(255, 255, 255, 0.46), transparent 17%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.17), transparent 42%);
-  mix-blend-mode: screen;
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .device-dock-indicator {
@@ -411,15 +384,12 @@ body.photo-background .view-switch button.view-switch-active {
   left: var(--device-indicator-left);
   z-index: 0;
   width: var(--device-indicator-width);
-  border: 1px solid rgba(255, 255, 255, 0.66);
+  border: 0;
   border-radius: 999px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(245, 249, 255, 0.52)),
-    rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.72);
   box-shadow:
-    0 5px 16px rgba(35, 53, 86, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.32);
+    0 4px 12px rgba(49, 61, 88, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
   transition:
     left 0.48s var(--ease),
     width 0.48s var(--ease),
@@ -441,8 +411,9 @@ body.photo-background .view-switch button.view-switch-active {
 
 .device-dock .dev-btn:hover {
   transform: none;
-  background: rgba(255, 255, 255, 0.16);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  color: var(--ink);
+  background: transparent;
+  box-shadow: none;
 }
 
 .device-dock .dev-btn-active,
@@ -1119,17 +1090,8 @@ body.photo-background .view-switch button.view-switch-active {
   padding: 0;
 }
 
-.theme-switch {
+.theme-toggle {
   flex: 0 0 32px;
-  padding: 3px;
-}
-
-.theme-switch .theme-toggle {
-  width: 24px;
-  height: 23px;
-  min-height: 0;
-  justify-content: center;
-  padding: 0;
 }
 
 .theme-icon-to-light {
@@ -1517,55 +1479,27 @@ body.night-mode .view-switch button.view-switch-active {
 }
 
 body.photo-background .device-dock {
-  border-color: rgba(255, 255, 255, 0.22);
-  background:
-    linear-gradient(
-      145deg,
-      rgba(255, 255, 255, 0.18),
-      rgba(255, 255, 255, 0.045) 48%,
-      rgba(255, 255, 255, 0.12)
-    ),
-    rgba(8, 13, 25, 0.28);
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(8, 13, 25, 0.3);
   box-shadow:
-    0 16px 40px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+    0 12px 30px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
 body.photo-background .device-dock-indicator {
-  border-color: rgba(255, 255, 255, 0.34);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.16)),
-    rgba(255, 255, 255, 0.1);
-  box-shadow:
-    0 7px 20px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 body.night-mode .device-dock {
-  border-color: rgba(255, 255, 255, 0.13);
-  background:
-    linear-gradient(
-      145deg,
-      rgba(255, 255, 255, 0.11),
-      rgba(255, 255, 255, 0.025) 48%,
-      rgba(255, 255, 255, 0.075)
-    ),
-    rgba(12, 15, 23, 0.42);
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
   box-shadow:
-    0 16px 42px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+    0 12px 30px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 body.night-mode .device-dock-indicator {
-  border-color: rgba(255, 255, 255, 0.17);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08)),
-    rgba(88, 166, 255, 0.1);
-  box-shadow:
-    0 7px 22px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  background: rgba(88, 166, 255, 0.16);
 }
 
 body.night-mode .gantt-tooltip-card {
