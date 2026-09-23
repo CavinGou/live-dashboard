@@ -1119,6 +1119,22 @@ body.photo-background .view-switch button.view-switch-active {
   padding: 0;
 }
 
+.theme-toggle {
+  flex: 0 0 32px;
+}
+
+.theme-icon-to-light {
+  display: none;
+}
+
+body.night-mode .theme-icon-to-dark {
+  display: none;
+}
+
+body.night-mode .theme-icon-to-light {
+  display: block;
+}
+
 .btn-today {
   color: var(--blue);
   font-size: 10px;
@@ -1439,7 +1455,7 @@ body.photo-background .view-switch button.view-switch-active {
 .reveal-d4 { animation-delay: 250ms; }
 .reveal-d5 { animation-delay: 330ms; }
 
-/* Offline / dark glass */
+/* Dark theme */
 body.night-mode {
   color-scheme: dark;
   --page-bg: #080a0f;

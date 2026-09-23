@@ -18,9 +18,11 @@ import {
   ChevronRight,
   Clock3,
   LayoutList,
+  Moon,
   Music2,
   Radio,
   Sparkles,
+  Sun,
   Wifi,
   WifiOff,
 } from "lucide-react";
@@ -33,6 +35,18 @@ import {
 } from "@/lib/api";
 import { getAppDescription } from "@/lib/app-descriptions";
 import Timeline, { type ActivityViewMode } from "@/components/Timeline";
+
+const THEME_STORAGE_KEY = "live-dashboard-theme";
+const THEME_BOOTSTRAP_SCRIPT = `
+  (function () {
+    try {
+      var saved = window.localStorage.getItem("${THEME_STORAGE_KEY}");
+      var useDark = saved === "dark" ||
+        (saved !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.body.classList.toggle("night-mode", useDark);
+    } catch (_) {}
+  })();
+`;
 
 /* ═══ Helpers ═══ */
 function fmtDur(m: number): string {
@@ -215,17 +229,6 @@ export default function Home() {
   const [background, setBackground] = useState<BackgroundResponse | null>(null);
   const [backgroundReady, setBackgroundReady] = useState(false);
 
-  const allOffline = useMemo(() => {
-    if (!data?.devices || data.devices.length === 0) return true;
-    return data.devices.every((d) => d.is_online !== 1);
-  }, [data?.devices]);
-
-  useEffect(() => {
-    if (!hasCurrentData) return;
-    document.body.classList.toggle("night-mode", allOffline);
-    return () => { document.body.classList.remove("night-mode"); };
-  }, [allOffline, hasCurrentData]);
-
   useEffect(() => {
     const deviceId = focusedDeviceId;
     if (!deviceId) {
@@ -338,6 +341,14 @@ export default function Home() {
     setActiveDevFilter(devId);
   }, []);
 
+  const toggleTheme = useCallback(() => {
+    const useDark = !document.body.classList.contains("night-mode");
+    document.body.classList.toggle("night-mode", useDark);
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, useDark ? "dark" : "light");
+    } catch {}
+  }, []);
+
   // Fetch AI daily summary from backend
   const [dailySummary, setDailySummary] = useState<{ summary: string | null; generated_at: string | null } | null>(null);
   useEffect(() => {
@@ -370,6 +381,7 @@ export default function Home() {
 
   return (
     <div className="dashboard-root">
+      <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
       <div ref={backdropRef} className="ambient-plane" aria-hidden="true">
         {background?.url && (
           <div
@@ -443,6 +455,16 @@ export default function Home() {
           </div>
 
           <div className="top-bar-right">
+            <button
+              type="button"
+              className="btn-subtle icon-btn theme-toggle"
+              onClick={toggleTheme}
+              aria-label="切换深浅色"
+              title="切换深浅色"
+            >
+              <Moon className="theme-icon-to-dark" size={15} />
+              <Sun className="theme-icon-to-light" size={15} />
+            </button>
             <span className={`sync-pill ${realtimeConnected ? "is-live" : ""}`}>
               {realtimeConnected ? <Wifi size={13} /> : <WifiOff size={13} />}
               {realtimeConnected ? "实时推送" : "轮询兜底"}
