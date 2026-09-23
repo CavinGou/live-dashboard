@@ -1119,8 +1119,17 @@ body.photo-background .view-switch button.view-switch-active {
   padding: 0;
 }
 
-.theme-toggle {
+.theme-switch {
   flex: 0 0 32px;
+  padding: 3px;
+}
+
+.theme-switch .theme-toggle {
+  width: 24px;
+  height: 23px;
+  min-height: 0;
+  justify-content: center;
+  padding: 0;
 }
 
 .theme-icon-to-light {

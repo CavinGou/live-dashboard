@@ -455,16 +455,18 @@ export default function Home() {
           </div>
 
           <div className="top-bar-right">
-            <button
-              type="button"
-              className="btn-subtle icon-btn theme-toggle"
-              onClick={toggleTheme}
-              aria-label="切换深浅色"
-              title="切换深浅色"
-            >
-              <Moon className="theme-icon-to-dark" size={15} />
-              <Sun className="theme-icon-to-light" size={15} />
-            </button>
+            <div className="view-switch theme-switch">
+              <button
+                type="button"
+                className="view-switch-active theme-toggle"
+                onClick={toggleTheme}
+                aria-label="切换深浅色"
+                title="切换深浅色"
+              >
+                <Moon className="theme-icon-to-dark" size={15} />
+                <Sun className="theme-icon-to-light" size={15} />
+              </button>
+            </div>
             <span className={`sync-pill ${realtimeConnected ? "is-live" : ""}`}>
               {realtimeConnected ? <Wifi size={13} /> : <WifiOff size={13} />}
               {realtimeConnected ? "实时推送" : "轮询兜底"}
