@@ -117,6 +117,34 @@ function GlassSurface({
   return <div className={`glass-surface ${className}`}>{children}</div>;
 }
 
+function preloadImage(url: string, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const image = new window.Image();
+    let settled = false;
+
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      signal.removeEventListener("abort", handleAbort);
+      image.onload = null;
+      image.onerror = null;
+      if (error) reject(error);
+      else resolve();
+    };
+    const handleAbort = () => finish(new Error("Background preload aborted"));
+    const timeout = window.setTimeout(
+      () => finish(new Error("Background preload timed out")),
+      15_000,
+    );
+
+    signal.addEventListener("abort", handleAbort, { once: true });
+    image.onload = () => finish();
+    image.onerror = () => finish(new Error("Background image failed to load"));
+    image.src = url;
+  });
+}
+
 /* ═══════════════════════════════════════
    Main Page — 花信 v5
    ═══════════════════════════════════════ */
@@ -191,25 +219,61 @@ export default function Home() {
   }, [allOffline, hasCurrentData]);
 
   useEffect(() => {
-    if (!backgroundDevice?.device_id) {
+    const deviceId = backgroundDevice?.device_id;
+    if (!deviceId) {
       setBackground(null);
       setBackgroundReady(true);
       return;
     }
 
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => setBackgroundReady(true), 1500);
+    let stopped = false;
+    let activeController: AbortController | undefined;
+    let refreshTimer: number | undefined;
+    const readyTimeout = window.setTimeout(() => {
+      if (!stopped) setBackgroundReady(true);
+    }, 1500);
     setBackgroundReady(false);
-    fetchBackground(backgroundDevice.device_id, controller.signal)
-      .then(setBackground)
-      .catch(() => {})
-      .finally(() => {
-        window.clearTimeout(timeout);
-        if (!controller.signal.aborted) setBackgroundReady(true);
-      });
+
+    const load = async (initial: boolean) => {
+      activeController?.abort();
+      const controller = new AbortController();
+      activeController = controller;
+
+      try {
+        const next = await fetchBackground(deviceId, controller.signal);
+        if (stopped || controller.signal.aborted) return;
+        if (next.url) {
+          await preloadImage(next.url, controller.signal);
+        }
+        if (stopped || controller.signal.aborted) return;
+
+        setBackground(next);
+        setBackgroundReady(true);
+        if (initial) window.clearTimeout(readyTimeout);
+
+        const refreshAfterMs = Number(next.refresh_after_ms) || 0;
+        if (next.source === "infinity" && refreshAfterMs > 0) {
+          refreshTimer = window.setTimeout(
+            () => { void load(false); },
+            refreshAfterMs + 500,
+          );
+        }
+      } catch {
+        if (stopped || controller.signal.aborted) return;
+        setBackgroundReady(true);
+        refreshTimer = window.setTimeout(
+          () => { void load(false); },
+          60_000,
+        );
+      }
+    };
+
+    void load(true);
     return () => {
-      window.clearTimeout(timeout);
-      controller.abort();
+      stopped = true;
+      window.clearTimeout(readyTimeout);
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      activeController?.abort();
     };
   }, [
     backgroundDevice?.device_id,
@@ -521,6 +585,8 @@ export default function Home() {
             >
               {background?.source === "bing"
                 ? "Bing 每日壁纸"
+                : background?.source === "infinity"
+                  ? "Infinity 壁纸"
                 : background?.source === "activity"
                   ? "活动背景"
                   : "动态背景"}

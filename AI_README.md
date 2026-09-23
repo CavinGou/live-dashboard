@@ -76,6 +76,7 @@ docker compose up -d
 | `SITE_TITLE` | 否 | 浏览器标签页 / 分享卡片标题，默认 `{DISPLAY_NAME} Now` |
 | `SITE_DESC` | 否 | meta description。**是 `SITE_DESC` 不是 `SITE_DESCRIPTION`** |
 | `SITE_FAVICON` | 否 | `/` 开头的相对路径或 https URL |
+| `WALLPAPER_ROTATION_MINUTES` | 否 | Infinity 壁纸轮换间隔（分钟），默认 `30` |
 | `EXTERNAL_DASHBOARDS` | 否 | JSON 数组，聚合朋友的面板：`[{"id":"f1","name":"小明","url":"https://now.friend.example"}]`。`id` 不能用保留值 `local` |
 | `CUSTOM_MAPPINGS_FILE` | 否 | 自定义应用名/文案 JSON 的路径，默认找 `/data/custom-mappings.json`，格式见 `custom-mappings.example.json` |
 | `REQUIRE_EXPLICIT_CONSENT` | 否 | 设 `1` 后设备必须先 POST `/api/consent` 才能上报，默认关 |

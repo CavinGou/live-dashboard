@@ -71,7 +71,7 @@ export interface DashboardRequestOptions {
 }
 
 export interface BackgroundResponse {
-  source: "activity" | "bing" | "fallback";
+  source: "activity" | "infinity" | "bing" | "fallback";
   url: string | null;
   device_id: string;
   app_id: string;
@@ -79,6 +79,7 @@ export interface BackgroundResponse {
   display_title: string;
   title: string;
   copyright: string;
+  refresh_after_ms?: number;
 }
 
 export interface CurrentEventPayload {

@@ -1,6 +1,7 @@
 import { getDeviceStateById } from "../db";
 import { getCustomBackground } from "../services/custom-mappings";
 import { getBingDailyWallpaper } from "../services/bing-wallpaper";
+import { getInfinityWallpaperRotation } from "../services/infinity-wallpaper";
 import { isConfiguredDeviceId } from "../middleware/auth";
 import type { DeviceState } from "../types";
 
@@ -31,6 +32,22 @@ export async function handleBackground(url: URL): Promise<Response> {
       display_title: state.display_title,
       title: "",
       copyright: "",
+      refresh_after_ms: 0,
+    });
+  }
+
+  const infinity = await getInfinityWallpaperRotation();
+  if (infinity.wallpaper) {
+    return Response.json({
+      source: "infinity",
+      url: infinity.wallpaper.url,
+      device_id: state.device_id,
+      app_id: state.app_id,
+      app_name: state.app_name,
+      display_title: state.display_title,
+      title: infinity.wallpaper.title,
+      copyright: infinity.wallpaper.copyright,
+      refresh_after_ms: infinity.refreshAfterMs,
     });
   }
 
@@ -45,6 +62,7 @@ export async function handleBackground(url: URL): Promise<Response> {
       display_title: state.display_title,
       title: bing.title,
       copyright: bing.copyright,
+      refresh_after_ms: 0,
     });
   }
 
@@ -57,5 +75,6 @@ export async function handleBackground(url: URL): Promise<Response> {
     display_title: state.display_title,
     title: "",
     copyright: "",
+    refresh_after_ms: 0,
   });
 }
