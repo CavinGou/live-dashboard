@@ -324,7 +324,10 @@ export default function Home() {
   }, []);
 
   const { displayName, siteTitle } = siteConfig ?? { displayName: "長青", siteTitle: "事件面板-長青" };
-  const devices = data?.devices ?? [];
+  const devices = useMemo(
+    () => [...(data?.devices ?? [])].sort((a, b) => a.device_id.localeCompare(b.device_id, "en")),
+    [data?.devices],
+  );
   const focusedDeviceIndex = Math.max(
     0,
     devices.findIndex((device) => device.device_id === focusedDeviceId),
