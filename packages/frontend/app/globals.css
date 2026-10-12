@@ -456,8 +456,7 @@ button {
   flex-shrink: 0;
 }
 
-.sync-pill,
-.realtime-status {
+.sync-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -470,8 +469,7 @@ button {
   white-space: nowrap;
 }
 
-.sync-pill.is-live,
-.realtime-status.is-live {
+.sync-pill.is-live {
   color: var(--green);
   background: var(--green-soft);
 }

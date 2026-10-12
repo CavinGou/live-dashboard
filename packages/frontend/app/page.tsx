@@ -569,10 +569,6 @@ export default function Home() {
           </div>
 
           <div className="tl-footer" suppressHydrationWarning>
-            <span className={`realtime-status ${realtimeConnected ? "is-live" : ""}`}>
-              {realtimeConnected ? <Wifi size={12} /> : <WifiOff size={12} />}
-              {realtimeConnected ? "SSE 实时同步" : "轮询兜底"}
-            </span>
             <span
               className="background-source"
               title={background?.copyright || background?.title || ""}
