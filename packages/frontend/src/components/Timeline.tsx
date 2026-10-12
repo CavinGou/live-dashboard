@@ -190,13 +190,11 @@ function NowIndicator({
 
 function DeviceTimeline({
   currentApp,
-  deviceName,
   isToday,
   mode,
   segments,
 }: {
   currentApp: string | undefined;
-  deviceName: string;
   isToday: boolean;
   mode: ActivityViewMode;
   segments: TimelineSegment[];
@@ -227,10 +225,6 @@ function DeviceTimeline({
 
   return (
     <section className="gantt-device">
-      <div className="gantt-device-header">
-        <p className="gantt-device-name">{deviceName}</p>
-      </div>
-
       <div className="gantt-chart" style={{ height: totalHeight }}>
         <div className="gantt-labels">
           <div className="gantt-label-spacer" style={{ height: AXIS_HEIGHT }} />
@@ -427,16 +421,13 @@ export default function Timeline({
   mode,
 }: Props) {
   const byDevice = useMemo(() => {
-    const devices = new Map<string, { name: string; segments: TimelineSegment[] }>();
+    const devices = new Map<string, TimelineSegment[]>();
     for (const segment of segments) {
       const existing = devices.get(segment.device_id);
       if (existing) {
-        existing.segments.push(segment);
+        existing.push(segment);
       } else {
-        devices.set(segment.device_id, {
-          name: segment.device_name,
-          segments: [segment],
-        });
+        devices.set(segment.device_id, [segment]);
       }
     }
     return devices;
@@ -453,14 +444,13 @@ export default function Timeline({
 
   return (
     <div className="gantt">
-      {Array.from(byDevice.entries()).map(([deviceId, device]) => (
+      {Array.from(byDevice.entries()).map(([deviceId, deviceSegments]) => (
         <DeviceTimeline
           key={deviceId}
           currentApp={currentAppByDevice[deviceId]}
-          deviceName={device.name}
           isToday={isToday}
           mode={mode}
-          segments={device.segments}
+          segments={deviceSegments}
         />
       ))}
     </div>

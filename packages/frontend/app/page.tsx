@@ -505,11 +505,6 @@ export default function Home() {
             <span className="tl-title">
               <BarChart3 size={15} />
               活动
-              {activeDevFilter && (
-                <span className="tl-filter-badge">
-                  {focusedDevice?.device_name}
-                </span>
-              )}
             </span>
             <div className="tl-header-actions">
               <span className="tl-total">{fmtDur(totalMins)}</span>
