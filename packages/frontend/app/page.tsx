@@ -457,14 +457,20 @@ export default function Home() {
 
                     {music?.title && (
                       <div className="music-block">
-                        <div className="section-label"><Music2 size={14} />正在播放</div>
                         <div className="music-row">
-                          {music.cover && <MusicCover src={music.cover} />}
-                          <div className="music-info">
-                            <span className="music-title-text">{music.title}</span>
-                            {music.artist && <span className="music-artist">{music.artist}</span>}
-                            {music.app && <span className="music-app">via {music.app}</span>}
+                          <div className="music-main">
+                            {music.app && (
+                              <div className="music-source">
+                                <span className="music-source-icon"><Music2 size={14} /></span>
+                                <span className="music-source-name">{music.app}</span>
+                              </div>
+                            )}
+                            <div className="music-info">
+                              <span className="music-title-text">{music.title}</span>
+                              {music.artist && <span className="music-artist">{music.artist}</span>}
+                            </div>
                           </div>
+                          {music.cover && <MusicCover src={music.cover} />}
                         </div>
                       </div>
                     )}
