@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   --page-bg: #d6e5fb;
   --page-bg-2: #ffd8e5;
   --page-bg-3: #ccefe0;
@@ -153,58 +153,10 @@ button {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(5, 11, 24, 0.48), rgba(5, 11, 24, 0.66)),
-    linear-gradient(105deg, rgba(5, 11, 24, 0.3), transparent 52%),
-    linear-gradient(100deg, rgba(255, 255, 255, 0.05), transparent 38%);
-  mix-blend-mode: multiply;
-}
-
-body.photo-background {
-  --ink: #f6f8ff;
-  --ink-secondary: rgba(245, 247, 255, 0.86);
-  --ink-muted: rgba(230, 235, 248, 0.72);
-  --ink-faint: rgba(214, 221, 238, 0.56);
-  --glass-line: rgba(255, 255, 255, 0.13);
-}
-
-body.photo-background .site-title,
-body.photo-background .hero-app,
-body.photo-background .music-title-text {
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.42);
-}
-
-body.photo-background .glass-surface {
-  border-color: rgba(255, 255, 255, 0.28);
-  background:
-    linear-gradient(
-      135deg,
-      rgba(8, 13, 25, 0.48),
-      rgba(8, 13, 25, 0.28) 52%,
-      rgba(8, 13, 25, 0.4)
-    ),
-    rgba(8, 13, 25, 0.12);
-  box-shadow:
-    0 34px 100px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-}
-
-body.photo-background .view-switch,
-body.photo-background .btn-subtle,
-body.photo-background .sync-pill,
-body.photo-background .realtime-status,
-body.photo-background .music-row,
-body.photo-background .gantt-labels,
-body.photo-background .gantt-axis {
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(8, 13, 25, 0.3);
-  box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
-}
-
-body.photo-background .view-switch button.view-switch-active {
-  background: rgba(255, 255, 255, 0.18);
+    linear-gradient(180deg, rgba(248, 251, 255, 0.4), rgba(239, 245, 253, 0.52)),
+    linear-gradient(105deg, rgba(255, 255, 255, 0.28), transparent 52%),
+    linear-gradient(100deg, rgba(255, 255, 255, 0.12), transparent 38%);
+  mix-blend-mode: normal;
 }
 
 @keyframes ambient-image-in {
@@ -1395,91 +1347,6 @@ body.photo-background .view-switch button.view-switch-active {
 .reveal-d3 { animation-delay: 170ms; }
 .reveal-d4 { animation-delay: 250ms; }
 .reveal-d5 { animation-delay: 330ms; }
-
-/* Dark theme */
-body.night-mode {
-  color-scheme: dark;
-  --page-bg: #080a0f;
-  --page-bg-2: #10121a;
-  --page-bg-3: #0b1114;
-  --glass: rgba(28, 31, 41, 0.54);
-  --glass-strong: rgba(37, 40, 52, 0.7);
-  --glass-soft: rgba(255, 255, 255, 0.07);
-  --glass-border: rgba(255, 255, 255, 0.13);
-  --glass-line: rgba(255, 255, 255, 0.09);
-  --glass-shadow:
-    0 30px 90px rgba(0, 0, 0, 0.44),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  --glass-shadow-soft:
-    0 14px 38px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  --ink: #f3f5fa;
-  --ink-secondary: #bdc5d5;
-  --ink-muted: #8993a6;
-  --ink-faint: #606a7d;
-  --blue: #58a6ff;
-  --blue-soft: rgba(88, 166, 255, 0.14);
-  --coral: #ff7890;
-  --green: #5cdd94;
-  --green-soft: rgba(92, 221, 148, 0.14);
-}
-
-body.night-mode .glass-surface {
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
-    var(--glass);
-}
-
-body.night-mode .view-switch,
-body.night-mode .btn-subtle,
-body.night-mode .sync-pill,
-body.night-mode .realtime-status,
-body.night-mode .music-row,
-body.night-mode .gantt-labels,
-body.night-mode .gantt-axis {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-body.night-mode .view-switch button.view-switch-active {
-  background: rgba(88, 166, 255, 0.16);
-}
-
-body.photo-background .device-dock {
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(8, 13, 25, 0.3);
-  box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
-}
-
-body.photo-background .device-dock-indicator {
-  background: rgba(255, 255, 255, 0.18);
-}
-
-body.night-mode .device-dock {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-body.night-mode .device-dock-indicator {
-  background: rgba(88, 166, 255, 0.16);
-}
-
-body.night-mode .gantt-tooltip-card {
-  color: var(--ink-secondary);
-  background: rgba(24, 27, 36, 0.88);
-}
-
-body.night-mode .ambient-plane {
-  opacity: 0.46;
-}
 
 /* Responsive */
 @media (max-width: 960px) {
