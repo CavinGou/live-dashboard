@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   --page-bg: #d6e5fb;
   --page-bg-2: #ffd8e5;
   --page-bg-3: #ccefe0;
@@ -73,16 +73,6 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   transition: none;
-}
-
-body.theme-transitions-ready {
-  transition: color 0.5s ease, background-color 0.5s ease;
-}
-
-body:not(.theme-transitions-ready) *,
-body:not(.theme-transitions-ready) *::before,
-body:not(.theme-transitions-ready) *::after {
-  transition: none !important;
 }
 
 button,
@@ -1090,22 +1080,6 @@ body.photo-background .view-switch button.view-switch-active {
   padding: 0;
 }
 
-.theme-toggle {
-  flex: 0 0 32px;
-}
-
-.theme-icon-to-light {
-  display: none;
-}
-
-body.night-mode .theme-icon-to-dark {
-  display: none;
-}
-
-body.night-mode .theme-icon-to-light {
-  display: block;
-}
-
 .btn-today {
   color: var(--blue);
   font-size: 10px;
@@ -1293,10 +1267,6 @@ body.night-mode .theme-icon-to-light {
 
 .gantt-axis-label {
   transform: translateX(-50%);
-}
-
-.gantt-axis-label:first-child {
-  transform: none;
 }
 
 .gantt-axis-mode-label {

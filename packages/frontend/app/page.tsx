@@ -18,11 +18,9 @@ import {
   ChevronRight,
   Clock3,
   LayoutList,
-  Moon,
   Music2,
   Radio,
   Sparkles,
-  Sun,
   Wifi,
   WifiOff,
 } from "lucide-react";
@@ -35,18 +33,6 @@ import {
 } from "@/lib/api";
 import { getAppDescription } from "@/lib/app-descriptions";
 import Timeline, { type ActivityViewMode } from "@/components/Timeline";
-
-const THEME_STORAGE_KEY = "live-dashboard-theme";
-const THEME_BOOTSTRAP_SCRIPT = `
-  (function () {
-    try {
-      var saved = window.localStorage.getItem("${THEME_STORAGE_KEY}");
-      var useDark = saved === "dark" ||
-        (saved !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-      document.body.classList.toggle("night-mode", useDark);
-    } catch (_) {}
-  })();
-`;
 
 /* ═══ Helpers ═══ */
 function fmtDur(m: number): string {
@@ -219,7 +205,6 @@ export default function Home() {
     return best;
   }, [onlineDevices]);
 
-  const hasCurrentData = current !== null;
   const focusedDevice = useMemo(
     () => (data?.devices ?? []).find((device) => device.device_id === activeDevFilter) ?? active,
     [active, activeDevFilter, data?.devices],
@@ -227,23 +212,17 @@ export default function Home() {
   const focusedDeviceId = focusedDevice?.device_id ?? null;
   const music = focusedDevice?.extra?.music;
   const [background, setBackground] = useState<BackgroundResponse | null>(null);
-  const [backgroundReady, setBackgroundReady] = useState(false);
 
   useEffect(() => {
     const deviceId = focusedDeviceId;
     if (!deviceId) {
       setBackground(null);
-      setBackgroundReady(true);
       return;
     }
 
     let stopped = false;
     let activeController: AbortController | undefined;
     let refreshTimer: number | undefined;
-    const readyTimeout = window.setTimeout(() => {
-      if (!stopped) setBackgroundReady(true);
-    }, 1500);
-    setBackgroundReady(false);
 
     const load = async (initial: boolean) => {
       activeController?.abort();
@@ -259,8 +238,6 @@ export default function Home() {
         if (stopped || controller.signal.aborted) return;
 
         setBackground(next);
-        setBackgroundReady(true);
-        if (initial) window.clearTimeout(readyTimeout);
 
         const refreshAfterMs = Number(next.refresh_after_ms) || 0;
         if (next.source === "infinity" && refreshAfterMs > 0) {
@@ -271,7 +248,6 @@ export default function Home() {
         }
       } catch {
         if (stopped || controller.signal.aborted) return;
-        setBackgroundReady(true);
         refreshTimer = window.setTimeout(
           () => { void load(false); },
           60_000,
@@ -282,7 +258,6 @@ export default function Home() {
     void load(true);
     return () => {
       stopped = true;
-      window.clearTimeout(readyTimeout);
       if (refreshTimer) window.clearTimeout(refreshTimer);
       activeController?.abort();
     };
@@ -296,21 +271,6 @@ export default function Home() {
     document.body.classList.toggle("photo-background", Boolean(background?.url));
     return () => document.body.classList.remove("photo-background");
   }, [background?.url]);
-
-  useEffect(() => {
-    if (!hasCurrentData || !backgroundReady) return;
-    let secondFrame = 0;
-    const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => {
-        document.body.classList.add("theme-transitions-ready");
-      });
-    });
-    return () => {
-      window.cancelAnimationFrame(firstFrame);
-      window.cancelAnimationFrame(secondFrame);
-      document.body.classList.remove("theme-transitions-ready");
-    };
-  }, [hasCurrentData, backgroundReady]);
 
   // Current app by device
   const currentAppByDevice = useMemo(() => {
@@ -339,14 +299,6 @@ export default function Home() {
 
   const handleDevFilter = useCallback((devId: string) => {
     setActiveDevFilter(devId);
-  }, []);
-
-  const toggleTheme = useCallback(() => {
-    const useDark = !document.body.classList.contains("night-mode");
-    document.body.classList.toggle("night-mode", useDark);
-    try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, useDark ? "dark" : "light");
-    } catch {}
   }, []);
 
   // Fetch AI daily summary from backend
@@ -381,7 +333,6 @@ export default function Home() {
 
   return (
     <div className="dashboard-root">
-      <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
       <div ref={backdropRef} className="ambient-plane" aria-hidden="true">
         {background?.url && (
           <div
@@ -455,16 +406,6 @@ export default function Home() {
           </div>
 
           <div className="top-bar-right">
-            <button
-              type="button"
-              className="btn-subtle icon-btn theme-toggle"
-              onClick={toggleTheme}
-              aria-label="切换深浅色"
-              title="切换深浅色"
-            >
-              <Moon className="theme-icon-to-dark" size={15} />
-              <Sun className="theme-icon-to-light" size={15} />
-            </button>
             <span className={`sync-pill ${realtimeConnected ? "is-live" : ""}`}>
               {realtimeConnected ? <Wifi size={13} /> : <WifiOff size={13} />}
               {realtimeConnected ? "实时推送" : "轮询兜底"}

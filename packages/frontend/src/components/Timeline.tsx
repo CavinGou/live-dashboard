@@ -260,18 +260,21 @@ function DeviceTimeline({
             style={{ height: totalHeight }}
           >
             <div className="gantt-axis" style={{ height: AXIS_HEIGHT }}>
-              {Array.from({ length: 24 }, (_, hour) => (
-                <span
-                  key={hour}
-                  className="gantt-axis-label"
-                  style={{
-                    left: `${(hour / 24) * 100}%`,
-                    opacity: mode === "timeline" ? 1 : 0,
-                  }}
-                >
-                  {String(hour).padStart(2, "0")}:00
-                </span>
-              ))}
+              {Array.from({ length: 23 }, (_, index) => {
+                const hour = index + 1;
+                return (
+                  <span
+                    key={hour}
+                    className="gantt-axis-label"
+                    style={{
+                      left: `${(hour / 24) * 100}%`,
+                      opacity: mode === "timeline" ? 1 : 0,
+                    }}
+                  >
+                    {String(hour).padStart(2, "0")}:00
+                  </span>
+                );
+              })}
               <span
                 className="gantt-axis-mode-label"
                 style={{ opacity: mode === "usage" ? 1 : 0 }}
