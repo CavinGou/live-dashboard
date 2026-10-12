@@ -18,7 +18,6 @@ import {
   ChevronRight,
   Clock3,
   LayoutList,
-  Music2,
   Radio,
   Sparkles,
   Wifi,
@@ -458,17 +457,14 @@ export default function Home() {
                     {music?.title && (
                       <div className="music-block">
                         <div className="music-row">
-                          <div className="music-main">
-                            {music.app && (
-                              <div className="music-source">
-                                <span className="music-source-icon"><Music2 size={14} /></span>
-                                <span className="music-source-name">{music.app}</span>
-                              </div>
-                            )}
-                            <div className="music-info">
-                              <span className="music-title-text">{music.title}</span>
-                              {music.artist && <span className="music-artist">{music.artist}</span>}
+                          {music.app && (
+                            <div className="music-source">
+                              <span className="music-source-name">{music.app}</span>
                             </div>
+                          )}
+                          <div className="music-info">
+                            <span className="music-title-text">{music.title}</span>
+                            {music.artist && <span className="music-artist">{music.artist}</span>}
                           </div>
                           {music.cover && <MusicCover src={music.cover} />}
                         </div>
