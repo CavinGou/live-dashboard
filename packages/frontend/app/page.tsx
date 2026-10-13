@@ -179,6 +179,7 @@ export default function Home() {
   const [ownerToken, setOwnerToken] = useState("");
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [appBgDraft, setAppBgDraft] = useState("");
+  const [appBgTarget, setAppBgTarget] = useState("");
   const [settingsNote, setSettingsNote] = useState<string | null>(null);
   const cheatRef = useRef<string[]>([]);
 
@@ -290,7 +291,7 @@ export default function Home() {
   useEffect(() => {
     const deviceId = focusedDeviceId;
     const customUrl = focusedDevice?.app_name
-      ? settings.appBackgrounds[focusedDevice.app_name]
+      ? draft.appBackgrounds[focusedDevice.app_name]
       : undefined;
 
     if (!deviceId) {
@@ -367,7 +368,7 @@ export default function Home() {
     focusedDevice?.app_id,
     focusedDevice?.display_title,
     focusedDevice?.app_name,
-    settings.appBackgrounds,
+    draft.appBackgrounds,
   ]);
 
   useEffect(() => {
@@ -410,17 +411,34 @@ export default function Home() {
     [draft.appBackgrounds],
   );
 
+  const selectableApps = useMemo(() => {
+    const names = new Map<string, boolean>();
+    if (currentAppName) names.set(currentAppName, true);
+    for (const segment of tlData?.segments ?? []) {
+      if (segment.app_name && !names.has(segment.app_name)) names.set(segment.app_name, false);
+    }
+    for (const app of Object.keys(draft.appBackgrounds)) {
+      if (!names.has(app)) names.set(app, false);
+    }
+    return Array.from(names.entries())
+      .map(([name, current]) => ({ name, current }))
+      .sort((a, b) => Number(b.current) - Number(a.current) || a.name.localeCompare(b.name, "zh"));
+  }, [currentAppName, tlData?.segments, draft.appBackgrounds]);
+
   const draftRef = useRef(draft);
   useEffect(() => { draftRef.current = draft; }, [draft]);
 
   useEffect(() => {
     if (!settingsOpen) return;
     setSettingsNote(null);
-    setAppBgDraft(currentAppName ? (draftRef.current.appBackgrounds[currentAppName] ?? "") : "");
+    const target = currentAppName || selectableApps[0]?.name || "";
+    setAppBgTarget(target);
+    setAppBgDraft(target ? (draftRef.current.appBackgrounds[target] ?? "") : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen, currentAppName]);
 
   const applyAppBackground = useCallback(() => {
-    const app = currentAppName;
+    const app = appBgTarget;
     if (!app) return;
     const url = appBgDraft.trim();
     setDraft((prev) => {
@@ -430,7 +448,12 @@ export default function Home() {
       return { ...prev, appBackgrounds: next };
     });
     setSettingsNote("待同步");
-  }, [appBgDraft, currentAppName]);
+  }, [appBgDraft, appBgTarget]);
+
+  const pickAppBackgroundTarget = useCallback((app: string) => {
+    setAppBgTarget(app);
+    setAppBgDraft(app ? (draftRef.current.appBackgrounds[app] ?? "") : "");
+  }, []);
 
   const removeAppBackground = useCallback((app: string) => {
     setDraft((prev) => {
@@ -438,8 +461,9 @@ export default function Home() {
       delete next[app];
       return { ...prev, appBackgrounds: next };
     });
+    if (appBgTarget === app) setAppBgDraft("");
     setSettingsNote("待同步");
-  }, []);
+  }, [appBgTarget]);
 
   const resetDraft = useCallback(() => {
     setDraft(DEFAULT_SETTINGS);
@@ -448,7 +472,7 @@ export default function Home() {
   }, []);
 
   const pickAppBackgroundFile = useCallback((file: File | undefined) => {
-    if (!file || !currentAppName) return;
+    if (!file || !appBgTarget) return;
     if (file.size > 1_100_000) {
       setSettingsNote("图片需小于 1.2MB");
       return;
@@ -459,13 +483,13 @@ export default function Home() {
       if (!url) return;
       setDraft((prev) => ({
         ...prev,
-        appBackgrounds: { ...prev.appBackgrounds, [currentAppName]: url },
+        appBackgrounds: { ...prev.appBackgrounds, [appBgTarget]: url },
       }));
       setAppBgDraft(url);
       setSettingsNote("待同步");
     };
     reader.readAsDataURL(file);
-  }, [currentAppName]);
+  }, [appBgTarget]);
 
   const saveSettingsToServer = useCallback(async () => {
     const token = ownerToken.trim();
@@ -843,8 +867,23 @@ export default function Home() {
               <div className="settings-field">
                 <span className="settings-field-head">
                   <span>应用专属背景</span>
-                  <span className="settings-value">{currentAppName || "无在线应用"}</span>
+                  <span className="settings-value">
+                    {currentAppName ? `活跃：${currentAppName}` : "无在线应用"}
+                  </span>
                 </span>
+                <select
+                  className="settings-input settings-select"
+                  value={appBgTarget}
+                  disabled={selectableApps.length === 0}
+                  onChange={(event) => pickAppBackgroundTarget(event.target.value)}
+                >
+                  {selectableApps.length === 0 && <option value="">暂无应用</option>}
+                  {selectableApps.map((app) => (
+                    <option key={app.name} value={app.name}>
+                      {app.current ? `${app.name}（活跃）` : app.name}
+                    </option>
+                  ))}
+                </select>
                 <input
                   className="settings-input"
                   type="url"
@@ -852,7 +891,7 @@ export default function Home() {
                   spellCheck={false}
                   placeholder="https://"
                   value={appBgDraft}
-                  disabled={!currentAppName}
+                  disabled={!appBgTarget}
                   onChange={(event) => setAppBgDraft(event.target.value)}
                 />
                 <div className="settings-actions">
@@ -860,17 +899,17 @@ export default function Home() {
                     type="button"
                     className="settings-btn settings-btn-primary"
                     onClick={applyAppBackground}
-                    disabled={!currentAppName}
+                    disabled={!appBgTarget}
                   >
                     应用
                   </button>
-                  <label className={`settings-btn ${currentAppName ? "" : "is-disabled"}`}>
+                  <label className={`settings-btn ${appBgTarget ? "" : "is-disabled"}`}>
                     选择图片
                     <input
                       type="file"
                       accept="image/*"
                       hidden
-                      disabled={!currentAppName}
+                      disabled={!appBgTarget}
                       onChange={(event) => {
                         pickAppBackgroundFile(event.target.files?.[0]);
                         event.target.value = "";

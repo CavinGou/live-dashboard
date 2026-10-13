@@ -1461,6 +1461,23 @@ button {
   color: var(--ink-faint);
 }
 
+.settings-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 26px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
+    linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 14px, calc(100% - 11px) 14px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.settings-select option {
+  color: var(--ink);
+  background: #161a23;
+}
+
 .settings-input:disabled {
   opacity: 0.45;
   cursor: not-allowed;
