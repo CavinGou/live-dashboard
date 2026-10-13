@@ -231,6 +231,28 @@ export const cleanupOldSummaries = db.prepare(`
   DELETE FROM daily_summaries WHERE date < date('now', 'localtime', '-7 days')
 `);
 
+// ── Dashboard appearance settings (single row, owner managed) ──
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS dashboard_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    payload TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )
+`);
+
+export const getDashboardSettingsRow = db.prepare(
+  "SELECT payload, updated_at FROM dashboard_settings WHERE id = 1"
+);
+
+export const upsertDashboardSettingsRow = db.prepare(`
+  INSERT INTO dashboard_settings (id, payload, updated_at)
+  VALUES (1, ?, ?)
+  ON CONFLICT(id) DO UPDATE SET
+    payload = excluded.payload,
+    updated_at = excluded.updated_at
+`);
+
 export const upsertDeviceConsent = db.prepare(`
   INSERT INTO device_consents (
     device_id,

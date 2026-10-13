@@ -1,3 +1,5 @@
+import type { DashboardSettings, DashboardSettingsResponse } from "./dashboard-settings";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 
 export interface DeviceState {
@@ -71,7 +73,7 @@ export interface DashboardRequestOptions {
 }
 
 export interface BackgroundResponse {
-  source: "activity" | "infinity" | "bing" | "fallback";
+  source: "activity" | "infinity" | "bing" | "fallback" | "custom";
   url: string | null;
   device_id: string;
   app_id: string;
@@ -118,9 +120,38 @@ export async function fetchBackground(
   return res.json();
 }
 
+export async function fetchDashboardSettings(signal?: AbortSignal): Promise<DashboardSettingsResponse> {
+  const res = await fetch(`${API_BASE}/api/settings`, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function putDashboardSettings(
+  settings: DashboardSettings,
+  token: string,
+): Promise<DashboardSettingsResponse> {
+  const res = await fetch(`${API_BASE}/api/settings`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(settings),
+  });
+
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("管理口令不正确");
+    if (res.status === 503) throw new Error("服务端未配置写入口令");
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
 export function subscribeCurrentEvents(
   onChange: (event: CurrentEventPayload) => void,
   onConnectionChange?: (connected: boolean) => void,
+  onSettingsChange?: () => void,
 ): () => void {
   if (typeof EventSource === "undefined") {
     onConnectionChange?.(false);
@@ -159,6 +190,7 @@ export function subscribeCurrentEvents(
   };
 
   source.addEventListener("current", handleCurrent as EventListener);
+  source.addEventListener("settings", () => onSettingsChange?.());
   source.addEventListener("ready", markConnected);
   source.addEventListener("open", markConnected);
   source.addEventListener("error", markDisconnected);

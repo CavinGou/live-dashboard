@@ -17,12 +17,18 @@ function encodeEvent(event: string, data: Record<string, unknown>): Uint8Array {
 
 export function publishCurrentUpdate(reason: string): void {
   eventVersion += 1;
-  const payload = {
+  broadcastEvent("current", {
     version: eventVersion,
     reason,
     updated_at: new Date().toISOString(),
-  };
+  });
+}
 
+export function publishSettingsUpdate(): void {
+  broadcastEvent("settings", { updated_at: new Date().toISOString() });
+}
+
+function broadcastEvent(event: string, payload: Record<string, unknown>): void {
   for (const client of clients) {
     if (client.closed) {
       clients.delete(client);
@@ -30,7 +36,7 @@ export function publishCurrentUpdate(reason: string): void {
     }
 
     try {
-      client.controller.enqueue(encodeEvent("current", payload));
+      client.controller.enqueue(encodeEvent(event, payload));
     } catch {
       client.closed = true;
       clearInterval(client.heartbeat);

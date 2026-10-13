@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   fetchCurrent,
   fetchTimeline,
@@ -19,7 +19,7 @@ function todayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function useDashboard(dashboardId?: string) {
+export function useDashboard(dashboardId?: string, onSettingsChange?: () => void) {
   const [current, setCurrent] = useState<CurrentResponse | null>(null);
   const [timeline, setTimeline] = useState<TimelineResponse | null>(null);
   const [selectedDate, setSelectedDate] = useState(todayStr());
@@ -27,6 +27,12 @@ export function useDashboard(dashboardId?: string) {
   const [error, setError] = useState<string | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const settingsChangeRef = useRef(onSettingsChange);
+
+  useEffect(() => {
+    settingsChangeRef.current = onSettingsChange;
+  }, [onSettingsChange]);
+
   const requestOptions = useMemo<DashboardRequestOptions | undefined>(() => {
     return dashboardId ? { dashboardId } : undefined;
   }, [dashboardId]);
@@ -103,6 +109,7 @@ export function useDashboard(dashboardId?: string) {
         if (reconnected) void loadCurrent();
         scheduleCurrentPoll();
       },
+      () => settingsChangeRef.current?.(),
     );
 
     setLoading(true);

@@ -19,18 +19,33 @@ import {
   Clock3,
   LayoutList,
   Radio,
+  SlidersHorizontal,
   Sparkles,
   Wifi,
   WifiOff,
+  X,
 } from "lucide-react";
 import { useDashboard } from "@/hooks/useDashboard";
 import {
   fetchBackground,
   fetchConfig,
+  fetchDashboardSettings,
+  putDashboardSettings,
   type BackgroundResponse,
   type SiteConfig,
 } from "@/lib/api";
 import { getAppDescription } from "@/lib/app-descriptions";
+import {
+  applySettings,
+  cacheSettings,
+  DEFAULT_SETTINGS,
+  nextCheatProgress,
+  normalizeSettings,
+  readCachedSettings,
+  readOwnerToken,
+  writeOwnerToken,
+  type DashboardSettings,
+} from "@/lib/dashboard-settings";
 import Timeline, { type ActivityViewMode } from "@/components/Timeline";
 
 /* ═══ Helpers ═══ */
@@ -150,6 +165,71 @@ function preloadImage(url: string, signal: AbortSignal): Promise<void> {
    Main Page — 花信 v5
    ═══════════════════════════════════════ */
 export default function Home() {
+  const [activeDevFilter, setActiveDevFilter] = useState<string | null>(null);
+  const [activityView, setActivityView] = useState<ActivityViewMode>("timeline");
+  const [mounted, setMounted] = useState(false);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setMounted(true); }, []);
+
+  const [settings, setSettings] = useState<DashboardSettings>(DEFAULT_SETTINGS);
+  const [draft, setDraft] = useState<DashboardSettings>(DEFAULT_SETTINGS);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsWritable, setSettingsWritable] = useState(false);
+  const [settingsUpdatedAt, setSettingsUpdatedAt] = useState<string | null>(null);
+  const [ownerToken, setOwnerToken] = useState("");
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [appBgDraft, setAppBgDraft] = useState("");
+  const [settingsNote, setSettingsNote] = useState<string | null>(null);
+  const cheatRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    const cached = readCachedSettings();
+    setSettings(cached);
+    setDraft(cached);
+    setOwnerToken(readOwnerToken());
+  }, []);
+
+  useEffect(() => {
+    applySettings(draft);
+  }, [draft]);
+
+  useEffect(() => {
+    if (!settingsOpen) setDraft(settings);
+  }, [settings, settingsOpen]);
+
+  const refreshSettings = useCallback(() => {
+    void (async () => {
+      try {
+        const remote = await fetchDashboardSettings();
+        const next = normalizeSettings(remote);
+        setSettings(next);
+        setSettingsWritable(remote.writable);
+        setSettingsUpdatedAt(remote.updatedAt ?? null);
+        cacheSettings(next);
+      } catch {
+        // Keep the cached appearance when the server is unreachable.
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    refreshSettings();
+  }, [refreshSettings]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && settingsOpen) {
+        setSettingsOpen(false);
+        return;
+      }
+      const cheat = nextCheatProgress(cheatRef.current, event.key.toLowerCase());
+      cheatRef.current = cheat.progress;
+      if (cheat.matched) setSettingsOpen((open) => !open);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [settingsOpen]);
+
   const {
     current,
     timeline,
@@ -159,12 +239,7 @@ export default function Home() {
     error,
     viewerCount,
     realtimeConnected,
-  } = useDashboard();
-  const [activeDevFilter, setActiveDevFilter] = useState<string | null>(null);
-  const [activityView, setActivityView] = useState<ActivityViewMode>("timeline");
-  const [mounted, setMounted] = useState(false);
-  const backdropRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { setMounted(true); }, []);
+  } = useDashboard(undefined, refreshSettings);
 
   // Keep focus on a valid device. Initial focus prefers the first online device.
   useEffect(() => {
@@ -214,9 +289,36 @@ export default function Home() {
 
   useEffect(() => {
     const deviceId = focusedDeviceId;
+    const customUrl = focusedDevice?.app_name
+      ? settings.appBackgrounds[focusedDevice.app_name]
+      : undefined;
+
     if (!deviceId) {
       setBackground(null);
       return;
+    }
+
+    if (customUrl) {
+      const controller = new AbortController();
+      void (async () => {
+        try {
+          await preloadImage(customUrl, controller.signal);
+        } catch {
+          // Keep the previous wallpaper when the custom image cannot load.
+        }
+        if (controller.signal.aborted) return;
+        setBackground({
+          source: "custom",
+          url: customUrl,
+          device_id: deviceId,
+          app_id: focusedDevice?.app_id ?? "",
+          app_name: focusedDevice?.app_name ?? "",
+          display_title: "",
+          title: "",
+          copyright: "",
+        });
+      })();
+      return () => controller.abort();
     }
 
     let stopped = false;
@@ -264,6 +366,8 @@ export default function Home() {
     focusedDeviceId,
     focusedDevice?.app_id,
     focusedDevice?.display_title,
+    focusedDevice?.app_name,
+    settings.appBackgrounds,
   ]);
 
   useEffect(() => {
@@ -299,6 +403,94 @@ export default function Home() {
   const handleDevFilter = useCallback((devId: string) => {
     setActiveDevFilter(devId);
   }, []);
+
+  const currentAppName = focusedDevice?.app_name ?? "";
+  const configuredApps = useMemo(
+    () => Object.entries(draft.appBackgrounds).sort(([a], [b]) => a.localeCompare(b, "zh")),
+    [draft.appBackgrounds],
+  );
+
+  const draftRef = useRef(draft);
+  useEffect(() => { draftRef.current = draft; }, [draft]);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    setSettingsNote(null);
+    setAppBgDraft(currentAppName ? (draftRef.current.appBackgrounds[currentAppName] ?? "") : "");
+  }, [settingsOpen, currentAppName]);
+
+  const applyAppBackground = useCallback(() => {
+    const app = currentAppName;
+    if (!app) return;
+    const url = appBgDraft.trim();
+    setDraft((prev) => {
+      const next = { ...prev.appBackgrounds };
+      if (url) next[app] = url;
+      else delete next[app];
+      return { ...prev, appBackgrounds: next };
+    });
+    setSettingsNote("待同步");
+  }, [appBgDraft, currentAppName]);
+
+  const removeAppBackground = useCallback((app: string) => {
+    setDraft((prev) => {
+      const next = { ...prev.appBackgrounds };
+      delete next[app];
+      return { ...prev, appBackgrounds: next };
+    });
+    setSettingsNote("待同步");
+  }, []);
+
+  const resetDraft = useCallback(() => {
+    setDraft(DEFAULT_SETTINGS);
+    setAppBgDraft("");
+    setSettingsNote("已恢复默认值，待同步");
+  }, []);
+
+  const pickAppBackgroundFile = useCallback((file: File | undefined) => {
+    if (!file || !currentAppName) return;
+    if (file.size > 1_100_000) {
+      setSettingsNote("图片需小于 1.2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = typeof reader.result === "string" ? reader.result : "";
+      if (!url) return;
+      setDraft((prev) => ({
+        ...prev,
+        appBackgrounds: { ...prev.appBackgrounds, [currentAppName]: url },
+      }));
+      setAppBgDraft(url);
+      setSettingsNote("待同步");
+    };
+    reader.readAsDataURL(file);
+  }, [currentAppName]);
+
+  const saveSettingsToServer = useCallback(async () => {
+    const token = ownerToken.trim();
+    if (!token) {
+      setSettingsNote("先填写管理口令");
+      return;
+    }
+    setSettingsSaving(true);
+    setSettingsNote(null);
+    try {
+      const saved = await putDashboardSettings(draft, token);
+      const next = normalizeSettings(saved);
+      setSettings(next);
+      setDraft(next);
+      cacheSettings(next);
+      setSettingsWritable(saved.writable);
+      setSettingsUpdatedAt(saved.updatedAt ?? null);
+      writeOwnerToken(token);
+      setSettingsNote("已同步");
+    } catch (e) {
+      setSettingsNote(e instanceof Error ? e.message : "同步失败");
+    } finally {
+      setSettingsSaving(false);
+    }
+  }, [draft, ownerToken]);
 
   // Fetch AI daily summary from backend
   const [dailySummary, setDailySummary] = useState<{ summary: string | null; generated_at: string | null } | null>(null);
@@ -577,9 +769,11 @@ export default function Home() {
                 ? "Bing 每日壁纸"
                 : background?.source === "infinity"
                   ? "Infinity 壁纸"
-                : background?.source === "activity"
-                  ? "活动背景"
-                  : "动态背景"}
+                  : background?.source === "activity"
+                    ? "活动背景"
+                    : background?.source === "custom"
+                      ? "应用专属背景"
+                      : "动态背景"}
             </span>
             <span>{displayName} Now</span>
           </div>
@@ -587,6 +781,160 @@ export default function Home() {
           </GlassSurface>
         </section>
       </main>
+
+      {settingsOpen && (
+        <div
+          className="settings-scrim"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSettingsOpen(false);
+          }}
+        >
+          <div className="settings-panel" role="dialog" aria-modal="true" aria-label="面板设置">
+            <div className="settings-head">
+              <span className="settings-title"><SlidersHorizontal size={14} />面板设置</span>
+              <button
+                type="button"
+                className="settings-btn settings-icon-btn"
+                onClick={() => setSettingsOpen(false)}
+                aria-label="关闭设置"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="settings-body">
+              <label className="settings-field">
+                <span className="settings-field-head">
+                  <span>区块不透明度</span>
+                  <span className="settings-value">{Math.round(draft.panelOpacity * 100)}%</span>
+                </span>
+                <input
+                  className="settings-range"
+                  type="range"
+                  min={0}
+                  max={96}
+                  step={1}
+                  value={Math.round(draft.panelOpacity * 100)}
+                  onChange={(event) =>
+                    setDraft((prev) => ({ ...prev, panelOpacity: Number(event.target.value) / 100 }))
+                  }
+                />
+              </label>
+
+              <label className="settings-field">
+                <span className="settings-field-head">
+                  <span>壁纸遮罩</span>
+                  <span className="settings-value">{Math.round(draft.overlayStrength * 100)}%</span>
+                </span>
+                <input
+                  className="settings-range"
+                  type="range"
+                  min={0}
+                  max={160}
+                  step={5}
+                  value={Math.round(draft.overlayStrength * 100)}
+                  onChange={(event) =>
+                    setDraft((prev) => ({ ...prev, overlayStrength: Number(event.target.value) / 100 }))
+                  }
+                />
+              </label>
+
+              <div className="settings-field">
+                <span className="settings-field-head">
+                  <span>应用专属背景</span>
+                  <span className="settings-value">{currentAppName || "无在线应用"}</span>
+                </span>
+                <input
+                  className="settings-input"
+                  type="url"
+                  inputMode="url"
+                  spellCheck={false}
+                  placeholder="https://"
+                  value={appBgDraft}
+                  disabled={!currentAppName}
+                  onChange={(event) => setAppBgDraft(event.target.value)}
+                />
+                <div className="settings-actions">
+                  <button
+                    type="button"
+                    className="settings-btn settings-btn-primary"
+                    onClick={applyAppBackground}
+                    disabled={!currentAppName}
+                  >
+                    应用
+                  </button>
+                  <label className={`settings-btn ${currentAppName ? "" : "is-disabled"}`}>
+                    选择图片
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      disabled={!currentAppName}
+                      onChange={(event) => {
+                        pickAppBackgroundFile(event.target.files?.[0]);
+                        event.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {configuredApps.length > 0 && (
+                  <div className="settings-list">
+                    {configuredApps.map(([app, url]) => (
+                      <div key={app} className="settings-item">
+                        <span className="settings-item-name" title={url}>{app}</span>
+                        <button
+                          type="button"
+                          className="settings-btn settings-icon-btn"
+                          onClick={() => removeAppBackground(app)}
+                          aria-label={`移除 ${app} 的背景`}
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <label className="settings-field">
+                <span className="settings-field-head">
+                  <span>管理口令</span>
+                  <span className="settings-value">
+                    {settingsWritable ? (settingsUpdatedAt ? settingsUpdatedAt.slice(0, 16).replace("T", " ") : "未同步") : "服务端未开启"}
+                  </span>
+                </span>
+                <input
+                  className="settings-input"
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="SETTINGS_TOKEN"
+                  value={ownerToken}
+                  disabled={!settingsWritable}
+                  onChange={(event) => setOwnerToken(event.target.value)}
+                />
+              </label>
+
+              <div className="settings-actions">
+                <button
+                  type="button"
+                  className="settings-btn settings-btn-primary"
+                  onClick={saveSettingsToServer}
+                  disabled={!settingsWritable || settingsSaving}
+                >
+                  {settingsSaving ? "同步中" : "同步到云端"}
+                </button>
+                <button type="button" className="settings-btn" onClick={resetDraft}>
+                  恢复默认
+                </button>
+                {settingsNote && <span className="settings-note">{settingsNote}</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

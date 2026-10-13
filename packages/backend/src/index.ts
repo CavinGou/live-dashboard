@@ -12,6 +12,7 @@ import { handleConsentGet, handleConsentPost } from "./routes/consent";
 import { handleConfig } from "./routes/config";
 import { handleProxy } from "./routes/proxy";
 import { handleBackground } from "./routes/background";
+import { handleSettingsGet, handleSettingsPut } from "./routes/settings";
 import { handleCurrentEvents } from "./services/current-events";
 import { injectSiteConfig } from "./services/site-config";
 import { cleanupUnconfiguredDeviceData, migrateLegacyTimestamps } from "./db";
@@ -73,8 +74,8 @@ const server = Bun.serve({
     // CORS headers for development
     const corsHeaders: Record<string, string> = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Settings-Token",
     };
 
     // Preflight
@@ -120,6 +121,10 @@ const server = Bun.serve({
         response = handleConfig();
       } else if (pathname === "/api/background" && req.method === "GET") {
         response = await handleBackground(url);
+      } else if (pathname === "/api/settings" && req.method === "GET") {
+        response = handleSettingsGet();
+      } else if (pathname === "/api/settings" && req.method === "PUT") {
+        response = await handleSettingsPut(req);
       } else if (pathname === "/api/proxy" && req.method === "GET") {
         response = await handleProxy(url);
       } else if (!pathname.startsWith("/api/")) {
