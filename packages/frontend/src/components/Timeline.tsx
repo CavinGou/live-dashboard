@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TimelineSegment } from "@/lib/api";
 
 const PALETTE = [
@@ -201,6 +201,7 @@ function DeviceTimeline({
 }) {
   const [hoveredBar, setHoveredBar] = useState<ActiveBar | null>(null);
   const [selectedBar, setSelectedBar] = useState<ActiveBar | null>(null);
+  const labelsRef = useRef<HTMLDivElement>(null);
 
   const colorMap = useMemo(() => new Map<string, string>(), []);
   const lanes = useMemo(
@@ -218,6 +219,11 @@ function DeviceTimeline({
     setSelectedBar(null);
   }, [segments]);
 
+  const handleRowsScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const labels = labelsRef.current;
+    if (labels) labels.scrollTop = event.currentTarget.scrollTop;
+  }, []);
+
   const activeBar = hoveredBar ?? selectedBar;
   const tooltipLeft = activeBar
     ? Math.min(Math.max(activeBar.left + activeBar.width / 2, 6), 94)
@@ -225,8 +231,8 @@ function DeviceTimeline({
 
   return (
     <section className="gantt-device">
-      <div className="gantt-chart" style={{ height: totalHeight }}>
-        <div className="gantt-labels">
+      <div className="gantt-chart">
+        <div className="gantt-labels" ref={labelsRef}>
           <div className="gantt-label-spacer" style={{ height: AXIS_HEIGHT }} />
           {lanes.map((lane) => {
             const isCurrent = lane.appName === currentApp;
@@ -248,7 +254,7 @@ function DeviceTimeline({
           })}
         </div>
 
-        <div className="gantt-scroll">
+        <div className="gantt-scroll" onScroll={handleRowsScroll}>
           <div
             className="gantt-timeline"
             style={{ height: totalHeight }}
