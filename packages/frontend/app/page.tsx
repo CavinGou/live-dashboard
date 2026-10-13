@@ -551,11 +551,12 @@ export default function Home() {
 
   return (
     <div className="dashboard-root">
-      <div ref={backdropRef} className="ambient-plane" aria-hidden="true">
+      <div className="ambient-plane" aria-hidden="true" />
+      <div ref={backdropRef} className="wallpaper-layer" aria-hidden="true">
         {background?.url && (
           <div
             key={background.url}
-            className="ambient-image"
+            className="wallpaper-image"
             style={{ backgroundImage: `url(${JSON.stringify(background.url)})` }}
           />
         )}

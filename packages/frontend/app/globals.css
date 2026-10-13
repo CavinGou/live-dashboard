@@ -137,19 +137,26 @@ button {
   z-index: 3;
 }
 
-.ambient-image {
-  position: absolute;
-  inset: -3%;
-  z-index: 2;
-  background-position: center;
-  background-size: cover;
-  transform: scale(1.03);
-  opacity: 0;
-  filter: saturate(118%) contrast(104%);
-  animation: ambient-image-in 900ms var(--ease) forwards;
+.wallpaper-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-.ambient-image::after {
+.wallpaper-image {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0;
+  filter: saturate(118%) contrast(104%);
+  animation: wallpaper-in 900ms var(--ease) forwards;
+}
+
+.wallpaper-image::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -164,9 +171,9 @@ button {
   mix-blend-mode: multiply;
 }
 
-@keyframes ambient-image-in {
-  from { opacity: 0; transform: scale(1.075); }
-  to { opacity: 1; transform: scale(1.03); }
+@keyframes wallpaper-in {
+  from { opacity: 0; transform: scale(1.015); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .glass-toolbar,
