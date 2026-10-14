@@ -3,6 +3,7 @@ import { getDashboardSettingsRow, upsertDashboardSettingsRow } from "../db";
 export interface DashboardSettings {
   panelOpacity: number;
   overlayStrength: number;
+  chartOpacity: number;
   appBackgrounds: Record<string, string>;
 }
 
@@ -13,6 +14,7 @@ export interface DashboardSettingsPayload extends DashboardSettings {
 export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
   panelOpacity: 0.54,
   overlayStrength: 1,
+  chartOpacity: 1,
   appBackgrounds: {},
 };
 
@@ -78,7 +80,12 @@ export function sanitizeDashboardSettings(input: unknown): DashboardSettings {
       ? clamp(record.overlayStrength, 0, 1.6)
       : DEFAULT_DASHBOARD_SETTINGS.overlayStrength;
 
-  return { panelOpacity, overlayStrength, appBackgrounds };
+  const chartOpacity =
+    typeof record.chartOpacity === "number" && Number.isFinite(record.chartOpacity)
+      ? clamp(record.chartOpacity, 0.05, 1)
+      : DEFAULT_DASHBOARD_SETTINGS.chartOpacity;
+
+  return { panelOpacity, overlayStrength, chartOpacity, appBackgrounds };
 }
 
 export function getDashboardSettings(): DashboardSettingsPayload {

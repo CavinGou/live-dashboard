@@ -865,6 +865,24 @@ export default function Home() {
                     }
                   />
                 </label>
+
+                <label className="settings-field">
+                  <span className="settings-field-head">
+                    <span>图表不透明度</span>
+                    <span className="settings-value">{Math.round(draft.chartOpacity * 100)}%</span>
+                  </span>
+                  <input
+                    className="settings-range"
+                    type="range"
+                    min={5}
+                    max={100}
+                    step={5}
+                    value={Math.round(draft.chartOpacity * 100)}
+                    onChange={(event) =>
+                      setDraft((prev) => ({ ...prev, chartOpacity: Number(event.target.value) / 100 }))
+                    }
+                  />
+                </label>
               </div>
 
               <div className="settings-col settings-col-apps">

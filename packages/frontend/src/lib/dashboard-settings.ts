@@ -1,6 +1,7 @@
 export interface DashboardSettings {
   panelOpacity: number;
   overlayStrength: number;
+  chartOpacity: number;
   appBackgrounds: Record<string, string>;
 }
 
@@ -12,6 +13,7 @@ export interface DashboardSettingsResponse extends DashboardSettings {
 export const DEFAULT_SETTINGS: DashboardSettings = {
   panelOpacity: 0.54,
   overlayStrength: 1,
+  chartOpacity: 1,
   appBackgrounds: {},
 };
 
@@ -54,6 +56,10 @@ export function normalizeSettings(input: unknown): DashboardSettings {
       typeof record.overlayStrength === "number" && Number.isFinite(record.overlayStrength)
         ? clamp(record.overlayStrength, 0, 1.6)
         : DEFAULT_SETTINGS.overlayStrength,
+    chartOpacity:
+      typeof record.chartOpacity === "number" && Number.isFinite(record.chartOpacity)
+        ? clamp(record.chartOpacity, 0.05, 1)
+        : DEFAULT_SETTINGS.chartOpacity,
     appBackgrounds,
   };
 }
@@ -100,6 +106,7 @@ export function applySettings(settings: DashboardSettings): void {
   if (typeof document === "undefined") return;
   const style = document.documentElement.style;
   style.setProperty("--panel-alpha", String(round(settings.panelOpacity)));
+  style.setProperty("--chart-alpha", String(round(settings.chartOpacity)));
   style.setProperty("--overlay-top", String(round(OVERLAY_BASE.top * settings.overlayStrength)));
   style.setProperty("--overlay-bottom", String(round(OVERLAY_BASE.bottom * settings.overlayStrength)));
   style.setProperty("--overlay-side", String(round(OVERLAY_BASE.side * settings.overlayStrength)));
