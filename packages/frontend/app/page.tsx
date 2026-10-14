@@ -772,7 +772,10 @@ export default function Home() {
                 <p className="tl-empty-sub">这一天还是一张白纸</p>
               </div>
             ) : (
-              <div style={{ opacity: loading && tlData ? 0.5 : 1, transition: "opacity 0.3s" }}>
+              <div
+                className="tl-view"
+                style={{ opacity: loading && tlData ? 0.5 : 1, transition: "opacity 0.3s" }}
+              >
                 {filteredSegments.length > 0 && (
                   <Timeline
                     segments={filteredSegments}
