@@ -1404,8 +1404,8 @@ button {
 }
 
 .settings-panel {
-  width: min(420px, 100%);
-  max-height: min(82vh, 720px);
+  width: min(880px, 100%);
+  max-height: min(86vh, 780px);
   overflow-y: auto;
   padding: 18px;
   border: 1px solid var(--glass-border);
@@ -1432,9 +1432,123 @@ button {
 }
 
 .settings-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.settings-col {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 16px;
+}
+
+.settings-col-apps {
+  padding-left: 22px;
+  border-left: 1px solid var(--glass-line);
+}
+
+.settings-apps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  max-height: min(44vh, 360px);
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+
+.settings-apps-empty {
+  color: var(--ink-faint);
+  font-size: 10px;
+}
+
+.settings-app {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.settings-app-thumb {
+  position: relative;
+  display: grid;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  color: var(--ink-faint);
+  background-color: rgba(255, 255, 255, 0.04);
+  background-position: center;
+  background-size: cover;
+  transition: border-color 0.16s ease, transform 0.16s ease;
+}
+
+.settings-app.is-configured .settings-app-thumb {
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.settings-app:hover .settings-app-thumb {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.settings-app.is-selected .settings-app-thumb {
+  border-color: var(--blue);
+  box-shadow:
+    0 0 0 1px var(--blue),
+    0 8px 20px rgba(0, 0, 0, 0.32);
+}
+
+.settings-app-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  color: #06131f;
+  background: var(--green);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.settings-app-name {
+  overflow: hidden;
+  color: var(--ink-secondary);
+  font-size: 10px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-app.is-selected .settings-app-name {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.settings-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--glass-line);
+}
+
+.settings-foot .settings-field {
+  min-width: 220px;
+  flex: 1 1 240px;
 }
 
 .settings-field {
@@ -1507,23 +1621,6 @@ button {
   color: var(--ink-faint);
 }
 
-.settings-select {
-  appearance: none;
-  -webkit-appearance: none;
-  padding-right: 26px;
-  background-image: linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
-    linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
-  background-position: calc(100% - 16px) 14px, calc(100% - 11px) 14px;
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
-  cursor: pointer;
-}
-
-.settings-select option {
-  color: var(--ink);
-  background: #161a23;
-}
-
 .settings-input:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -1585,32 +1682,20 @@ button {
   font-size: 10px;
 }
 
-.settings-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.settings-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 5px 6px 5px 11px;
-  border: 1px solid var(--glass-line);
-  border-radius: 12px;
-  color: var(--ink-muted);
-  font-size: 10px;
-}
-
-.settings-item-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* Responsive */
+@media (max-width: 760px) {
+  .settings-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-col-apps {
+    padding-top: 18px;
+    padding-left: 0;
+    border-top: 1px solid var(--glass-line);
+    border-left: 0;
+  }
+}
+
 @media (max-width: 960px) {
   .top-bar-host {
     margin: 10px 12px 10px;

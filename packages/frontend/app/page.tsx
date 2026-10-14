@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Clock3,
   LayoutList,
+  Plus,
   Radio,
   SlidersHorizontal,
   Sparkles,
@@ -406,10 +407,6 @@ export default function Home() {
   }, []);
 
   const currentAppName = focusedDevice?.app_name ?? "";
-  const configuredApps = useMemo(
-    () => Object.entries(draft.appBackgrounds).sort(([a], [b]) => a.localeCompare(b, "zh")),
-    [draft.appBackgrounds],
-  );
 
   const selectableApps = useMemo(() => {
     const names = new Map<string, boolean>();
@@ -832,62 +829,80 @@ export default function Home() {
             </div>
 
             <div className="settings-body">
-              <label className="settings-field">
-                <span className="settings-field-head">
-                  <span>区块不透明度</span>
-                  <span className="settings-value">{Math.round(draft.panelOpacity * 100)}%</span>
-                </span>
-                <input
-                  className="settings-range"
-                  type="range"
-                  min={0}
-                  max={96}
-                  step={1}
-                  value={Math.round(draft.panelOpacity * 100)}
-                  onChange={(event) =>
-                    setDraft((prev) => ({ ...prev, panelOpacity: Number(event.target.value) / 100 }))
-                  }
-                />
-              </label>
-
-              <label className="settings-field">
-                <span className="settings-field-head">
-                  <span>壁纸遮罩</span>
-                  <span className="settings-value">{Math.round(draft.overlayStrength * 100)}%</span>
-                </span>
-                <input
-                  className="settings-range"
-                  type="range"
-                  min={0}
-                  max={160}
-                  step={5}
-                  value={Math.round(draft.overlayStrength * 100)}
-                  onChange={(event) =>
-                    setDraft((prev) => ({ ...prev, overlayStrength: Number(event.target.value) / 100 }))
-                  }
-                />
-              </label>
-
-              <div className="settings-field">
-                <span className="settings-field-head">
-                  <span>应用专属背景</span>
-                  <span className="settings-value">
-                    {currentAppName ? `活跃：${currentAppName}` : "无在线应用"}
+              <div className="settings-col">
+                <label className="settings-field">
+                  <span className="settings-field-head">
+                    <span>区块不透明度</span>
+                    <span className="settings-value">{Math.round(draft.panelOpacity * 100)}%</span>
                   </span>
-                </span>
-                <select
-                  className="settings-input settings-select"
-                  value={appBgTarget}
-                  disabled={selectableApps.length === 0}
-                  onChange={(event) => pickAppBackgroundTarget(event.target.value)}
-                >
-                  {selectableApps.length === 0 && <option value="">暂无应用</option>}
-                  {selectableApps.map((app) => (
-                    <option key={app.name} value={app.name}>
-                      {app.current ? `${app.name}（活跃）` : app.name}
-                    </option>
-                  ))}
-                </select>
+                  <input
+                    className="settings-range"
+                    type="range"
+                    min={0}
+                    max={96}
+                    step={1}
+                    value={Math.round(draft.panelOpacity * 100)}
+                    onChange={(event) =>
+                      setDraft((prev) => ({ ...prev, panelOpacity: Number(event.target.value) / 100 }))
+                    }
+                  />
+                </label>
+
+                <label className="settings-field">
+                  <span className="settings-field-head">
+                    <span>壁纸遮罩</span>
+                    <span className="settings-value">{Math.round(draft.overlayStrength * 100)}%</span>
+                  </span>
+                  <input
+                    className="settings-range"
+                    type="range"
+                    min={0}
+                    max={160}
+                    step={5}
+                    value={Math.round(draft.overlayStrength * 100)}
+                    onChange={(event) =>
+                      setDraft((prev) => ({ ...prev, overlayStrength: Number(event.target.value) / 100 }))
+                    }
+                  />
+                </label>
+              </div>
+
+              <div className="settings-col settings-col-apps">
+                <div className="settings-field">
+                  <span className="settings-field-head">
+                    <span>应用专属背景</span>
+                    <span className="settings-value">
+                      {appBgTarget ? appBgTarget : "无在线应用"}
+                    </span>
+                  </span>
+                  <div className="settings-apps">
+                    {selectableApps.length === 0 && (
+                      <span className="settings-apps-empty">暂无应用</span>
+                    )}
+                    {selectableApps.map((app) => {
+                      const image = draft.appBackgrounds[app.name];
+                      return (
+                        <button
+                          key={app.name}
+                          type="button"
+                          className={`settings-app${app.name === appBgTarget ? " is-selected" : ""}${image ? " is-configured" : ""}`}
+                          onClick={() => pickAppBackgroundTarget(app.name)}
+                          title={app.name}
+                        >
+                          <span
+                            className="settings-app-thumb"
+                            style={image ? { backgroundImage: `url(${JSON.stringify(image)})` } : undefined}
+                          >
+                            {!image && <Plus size={16} />}
+                            {app.current && <span className="settings-app-badge">活跃</span>}
+                          </span>
+                          <span className="settings-app-name">{app.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <input
                   className="settings-input"
                   type="url"
@@ -920,27 +935,19 @@ export default function Home() {
                       }}
                     />
                   </label>
+                  <button
+                    type="button"
+                    className="settings-btn"
+                    onClick={() => appBgTarget && removeAppBackground(appBgTarget)}
+                    disabled={!appBgTarget || !draft.appBackgrounds[appBgTarget]}
+                  >
+                    移除
+                  </button>
                 </div>
-
-                {configuredApps.length > 0 && (
-                  <div className="settings-list">
-                    {configuredApps.map(([app, url]) => (
-                      <div key={app} className="settings-item">
-                        <span className="settings-item-name" title={url}>{app}</span>
-                        <button
-                          type="button"
-                          className="settings-btn settings-icon-btn"
-                          onClick={() => removeAppBackground(app)}
-                          aria-label={`移除 ${app} 的背景`}
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
+            </div>
 
+            <div className="settings-foot">
               <label className="settings-field">
                 <span className="settings-field-head">
                   <span>管理口令</span>
